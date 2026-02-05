@@ -102,7 +102,9 @@ class WordStatApp:
         try:
             self.analyzer = SemanticAnalyzer(
                 lemmatize=self.config.get('ai', {}).get('lemmatize', True),
-                max_features=self.config.get('ai', {}).get('max_features', 1000)
+                max_features=self.config.get('ai', {}).get('max_features', 1000),
+                embedding_model=self.config.get('ai', {}).get('embedding_model', 'multilingual'),
+                use_semantic=self.config.get('ai', {}).get('use_semantic', True)
             )
             logger.info("✓ SemanticAnalyzer инициализирован")
         except Exception as e:
@@ -405,9 +407,11 @@ class WordStatApp:
             # ✅ ФОРМАТИРОВАТЬ РЕЗУЛЬТАТЫ
             results_text = self.analyzer.format_clusters(clusters)
             
+            clustering_method = stats.get('clustering_method', 'unknown')
             stats_text = f"""
 📊 СТАТИСТИКА КЛАСТЕРИЗАЦИИ
 {'=' * 50}
+Метод: {clustering_method}
 Всего кластеров: {stats.get('total_clusters', 0)}
 Всего ключевых слов: {stats.get('total_keywords', 0)}
 Средний размер кластера: {stats.get('avg_cluster_size', 0):.1f}
@@ -419,7 +423,7 @@ class WordStatApp:
             if hasattr(self.ui, 'display_ai_results'):
                 self.ui.display_ai_results(results_text, stats_text)
             
-            self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров")
+            self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров ({clustering_method})")
             
             logger.info("✓ Результаты отображены в UI")
         

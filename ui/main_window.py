@@ -325,8 +325,8 @@ class MainWindow(ctk.CTk):
         
         self.ai_clustering_mode = LabeledEntry(
             params_frame,
-            label_text="🔗 Режим кластеризации (threshold/fixed):",
-            placeholder="threshold"
+            label_text="🔗 Режим (auto/semantic/tfidf/threshold/fixed):",
+            placeholder="auto"
         )
         self.ai_clustering_mode.pack(fill='x', pady=5, padx=10)
         
@@ -343,6 +343,24 @@ class MainWindow(ctk.CTk):
             placeholder="10"
         )
         self.ai_n_clusters.pack(fill='x', pady=5, padx=10)
+        
+        # ✅ ИНФО О ДОСТУПНЫХ МЕТОДАХ
+        try:
+            from ai.clustering import SemanticAnalyzer
+            if SemanticAnalyzer.is_semantic_available():
+                method_info = "✅ Sentence-Transformers доступен (лучший метод)"
+            else:
+                method_info = "⚠ Sentence-Transformers не установлен, используется TF-IDF"
+        except Exception:
+            method_info = "📊 TF-IDF кластеризация"
+        
+        self.ai_method_label = ctk.CTkLabel(
+            params_frame,
+            text=method_info,
+            font=UIConfig.FONT_SMALL,
+            text_color=UIConfig.COLOR_SUCCESS if "✅" in method_info else UIConfig.COLOR_WARNING
+        )
+        self.ai_method_label.pack(anchor='w', padx=10, pady=(5, 10))
         
         # ✅ КНОПКИ АНАЛИЗА И ЭКСПОРТА
         button_frame = ctk.CTkFrame(container, fg_color=UIConfig.BG_PRIMARY)
