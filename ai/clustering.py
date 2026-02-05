@@ -25,12 +25,18 @@ try:
 except ImportError:
     logger.warning("⚠ scikit-learn не установлен, кластеризация отключена")
     SKLEARN_AVAILABLE = False
+except SyntaxError as e:
+    logger.error(f"⚠ scikit-learn повреждён: {e}")
+    SKLEARN_AVAILABLE = False
 
 try:
     import pymorphy3
     MORPH_AVAILABLE = True
 except ImportError:
     logger.warning("⚠ pymorphy3 не установлен, лемматизация отключена")
+    MORPH_AVAILABLE = False
+except SyntaxError as e:
+    logger.error(f"⚠ pymorphy3 повреждён: {e}")
     MORPH_AVAILABLE = False
 
 # ✅ SENTENCE-TRANSFORMERS - ЛУЧШИЙ ВАРИАНТ ДЛЯ СЕМАНТИКИ
@@ -41,6 +47,10 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     logger.warning("⚠ sentence-transformers не установлен, используем TF-IDF")
+except SyntaxError as e:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    logger.error(f"⚠ sentence-transformers повреждён (null bytes или ошибка синтаксиса): {e}")
+    logger.error("Попробуйте переустановить: pip uninstall sentence-transformers && pip install sentence-transformers")
 
 # ✅ HDBSCAN - ЛУЧШИЙ АЛГОРИТМ КЛАСТЕРИЗАЦИИ
 try:
@@ -50,6 +60,9 @@ try:
 except ImportError:
     HDBSCAN_AVAILABLE = False
     logger.warning("⚠ hdbscan не установлен, используем Agglomerative")
+except SyntaxError as e:
+    logger.error(f"⚠ hdbscan повреждён: {e}")
+    HDBSCAN_AVAILABLE = False
 
 # Русские стоп-слова для фильтрации
 RUSSIAN_STOP_WORDS = {
