@@ -454,12 +454,6 @@ class WordStatApp:
         except Exception as e:
             logger.error(f"✗ Ошибка экспорта AI: {e}")
             self.ui.set_status(f"❌ Ошибка экспорта: {e}")
-        
-        except Exception as e:
-            logger.error(f"✗ Ошибка в потоке AI: {e}")
-            self.ui.set_status(f"❌ Ошибка AI: {e}")
-            import traceback
-            traceback.print_exc()
     
     def _on_parser_update(self, stats: Dict) -> None:
         """Callback: Обновление статистики (периодический)"""

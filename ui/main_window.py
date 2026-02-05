@@ -610,17 +610,17 @@ class MainWindow(ctk.CTk):
         """Кнопка экспорта AI результатов"""
         logger.info("💾 Клик по кнопке AI Экспорт")
         
-        if hasattr(self, 'on_ai_export_callback') and self.on_ai_export_callback:
-            try:
-                self.set_status("💾 Экспорт AI анализа...")
-                self.on_ai_export_callback()
-                self.set_status("✓ AI анализ экспортирован")
-            except Exception as e:
-                logger.error(f"✗ Ошибка AI экспорта: {e}")
-                self.set_status(f"❌ Ошибка экспорта: {e}")
-        else:
-            logger.warning("⚠ on_ai_export_callback не установлен - нет результатов анализа")
-            self.set_status("⚠ Сначала запустите AI анализ")
+        if not hasattr(self, 'on_ai_export_callback') or not self.on_ai_export_callback:
+            logger.warning("⚠ on_ai_export_callback не установлен")
+            self.set_status("⚠ Функция экспорта не настроена")
+            return
+        
+        try:
+            self.set_status("💾 Экспорт AI анализа...")
+            self.on_ai_export_callback()
+        except Exception as e:
+            logger.error(f"✗ Ошибка AI экспорта: {e}")
+            self.set_status(f"❌ Ошибка экспорта: {e}")
     
     def _on_ai_copy(self):
         """Кнопка копирования AI результатов в буфер обмена"""

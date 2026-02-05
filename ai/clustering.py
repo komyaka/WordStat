@@ -50,6 +50,7 @@ class SemanticAnalyzer:
         try:
             self.lemmatize = lemmatize and MORPH_AVAILABLE
             self.max_features = max_features
+            self._last_clusters = {}  # Хранение последних результатов
             
             if self.lemmatize:
                 self.morph = pymorphy3.MorphAnalyzer()
@@ -65,6 +66,7 @@ class SemanticAnalyzer:
             logger.error(f"✗ Ошибка инициализации SemanticAnalyzer: {e}")
             self.lemmatize = False
             self.morph = None
+            self._last_clusters = {}
     
     def _lemmatize_text(self, text: str, remove_stop_words: bool = True) -> str:
         """Лемматизировать текст и удалить стоп-слова"""
