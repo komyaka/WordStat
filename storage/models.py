@@ -52,15 +52,15 @@ class KeywordData:
             depth = 1
         
         return cls(
-            phrase=str(data.get('phrase', '')),
+            phrase=data.get('phrase', ''),
             count=count,
-            seed=str(data.get('seed', '')),
+            seed=data.get('seed', ''),
             depth=depth,
             source=data.get('source'),
             geo_tokens=list(data.get('geo_tokens', [])),
             intent=data.get('intent'),
-            timestamp=str(data.get('timestamp', datetime.now().isoformat())),
-            origin=str(data.get('origin', 'API')),
+            timestamp=data.get('timestamp', datetime.now().isoformat()),
+            origin=data.get('origin', 'API'),
         )
 
 @dataclass
