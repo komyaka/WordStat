@@ -2,7 +2,7 @@
 Нормализация и лемматизация текста
 """
 import threading
-from typing import List, Set, Optional
+from typing import List, Set, Optional, FrozenSet
 import re
 
 from utils.logger import get_logger
@@ -98,6 +98,26 @@ class Normalizer:
         except Exception as e:
             logger.error(f"✗ Ошибка lemmatize_phrase: {e}")
             return phrase.split()
+    
+    def lemmatize_set(self, phrase: str) -> Set[str]:
+        """
+        Лемматизировать фразу и вернуть множество лемм.
+        Используется для сравнения наличия минус-слов.
+        
+        Args:
+            phrase: Фраза для лемматизации
+            
+        Returns:
+            Множество лемм (без стоп-слов)
+        """
+        try:
+            lemmas = self.lemmatize_phrase(phrase)
+            # Исключаем стоп-слова и возвращаем как множество
+            return set(lemma.lower() for lemma in lemmas if lemma.lower() not in RUSSIAN_STOP_WORDS)
+        except Exception as e:
+            logger.error(f"✗ Ошибка lemmatize_set: {e}")
+            normalized = self.normalize_phrase(phrase)
+            return set(normalized.split()) if normalized else set()
     
     def remove_stop_words(self, phrase: str) -> str:
         """

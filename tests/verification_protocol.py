@@ -351,18 +351,17 @@ class VerificationProtocol:
                 db_path = os.path.join(tmpdir, "test_cache.db")
                 cache = WordstatCache(db_path=db_path, ttl_days=1)
                 
-                # Тест 1: Write/Read
-                cache.put(
-                    cache_key="test_phrase|123",
-                    phrase="test phrase",
-                    response_json='{"results": []}'
-                )
+                # Тест 1: Write/Read using set/get
+                test_phrase = "test phrase"
+                test_results = [{"phrase": "тест", "count": 100}]
+                
+                cache.set(test_phrase, test_results)
                 
                 # Даём время на запись
                 time.sleep(0.5)
                 
-                result = cache.get("test_phrase|123")
-                if result and result['status'] == 'hit':
+                result = cache.get(test_phrase)
+                if result is not None and len(result) > 0:
                     self.log_test("Cache write/read", True, "Hit после write")
                 else:
                     self.log_test("Cache write/read", False, "Miss после write")
@@ -376,8 +375,8 @@ class VerificationProtocol:
                 
                 # Тест 3: Stats
                 stats = cache.get_stats()
-                if stats and 'hits' in stats and 'misses' in stats:
-                    self.log_test("Cache statistics", True, f"Hits: {stats['hits']}, Misses: {stats['misses']}")
+                if stats and 'total' in stats and 'valid' in stats:
+                    self.log_test("Cache statistics", True, f"Total: {stats['total']}, Valid: {stats['valid']}")
                 else:
                     self.log_test("Cache statistics", False, "Статистика не доступна")
                 
