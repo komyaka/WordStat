@@ -32,7 +32,7 @@ class ConfigManager:
         'quotas': {
             'max_rps': 10,
             'max_per_hour': 10000,
-            'max_per_day': 1000,
+            'max_per_day': 100000,
         },
         'filters': {
             'min_count': 10,
