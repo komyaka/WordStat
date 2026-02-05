@@ -20,7 +20,8 @@ def check_for_null_bytes(filepath: str) -> bool:
             if b'\x00' in content:
                 return False
         return True
-    except Exception:
+    except (IOError, OSError) as e:
+        print(f"⚠ Не удалось прочитать файл {filepath}: {e}")
         return False
 
 
