@@ -2,7 +2,7 @@
 Нормализация и лемматизация текста
 """
 import threading
-from typing import List, Set, Optional, FrozenSet
+from typing import List, Set, Optional
 import re
 
 from utils.logger import get_logger
@@ -113,7 +113,12 @@ class Normalizer:
         try:
             lemmas = self.lemmatize_phrase(phrase)
             # Исключаем стоп-слова и возвращаем как множество
-            return set(lemma.lower() for lemma in lemmas if lemma.lower() not in RUSSIAN_STOP_WORDS)
+            result = set()
+            for lemma in lemmas:
+                lower_lemma = lemma.lower()
+                if lower_lemma not in RUSSIAN_STOP_WORDS:
+                    result.add(lower_lemma)
+            return result
         except Exception as e:
             logger.error(f"✗ Ошибка lemmatize_set: {e}")
             normalized = self.normalize_phrase(phrase)

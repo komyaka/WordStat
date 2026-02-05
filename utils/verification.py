@@ -232,8 +232,8 @@ class VerificationPhase:
                 
                 # Добавить 500 строк
                 from datetime import datetime
-                timestamp = datetime.now().isoformat()
                 for i in range(500):
+                    timestamp = datetime.now().isoformat()
                     log_table.add_row(f"phrase_{i}", str(i), "API", "1", f"seed_{i}", timestamp)
                 
                 # Должно быть максимум 100
