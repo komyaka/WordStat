@@ -1,0 +1,98 @@
+{
+  "passed": 10,
+  "failed": 5,
+  "total": 15,
+  "success_rate": 66.66666666666666,
+  "results": [
+    {
+      "test": "Импорт модулей",
+      "passed": false,
+      "details": "No module named 'numpy'",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Race condition: Keywords safety",
+      "passed": true,
+      "details": "1000/1000 ключевых слов сохранено",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Memory leak check",
+      "passed": true,
+      "details": "psutil не установлен, пропущено",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "GUI freeze prevention",
+      "passed": true,
+      "details": "UI обновления через after()/queue",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Error classification: 401 Unauthorized",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Error classification: 403 Forbidden",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Error classification: 429 Too Many Requests",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Error classification: 500 Server Error",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Error classification: 503 Service Unavailable",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Clipboard test",
+      "passed": false,
+      "details": "No module named 'tkinter'",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Quota compliance test",
+      "passed": false,
+      "details": "max_per_day не может быть больше max_per_hour",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Cache verification",
+      "passed": false,
+      "details": "'WordstatCache' object has no attribute 'put'",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "KeywordData serialization",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Phrase normalization",
+      "passed": false,
+      "details": "Получено: test phrase",
+      "timestamp": "2026-02-05 08:37:54"
+    },
+    {
+      "test": "Keyword filter",
+      "passed": true,
+      "details": "",
+      "timestamp": "2026-02-05 08:37:54"
+    }
+  ]
+}

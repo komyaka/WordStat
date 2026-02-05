@@ -130,6 +130,10 @@ class WordStatApp:
         self.ui.on_stop_callback = self._on_ui_stop
         self.ui.on_export_callback = self._on_ui_export
         self.ui.on_ai_analyze_callback = self._on_ai_analyze
+        self.ui.on_ai_export_callback = self._on_ai_export
+        
+        # ✅ ХРАНЕНИЕ РЕЗУЛЬТАТОВ КЛАСТЕРИЗАЦИИ
+        self._last_clusters = {}
         
         # ✅ УСТАНОВИТЬ CALLBACKS В PARSER
         self.parser.ui_callback = self._on_parser_update
@@ -386,10 +390,14 @@ class WordStatApp:
                 self.parser.state.keywords,
                 threshold=settings.get('threshold', 0.5),
                 n_clusters=settings.get('n_clusters', 10),
-                clustering_mode=settings.get('clustering_mode', 'threshold')
+                clustering_mode=settings.get('clustering_mode', 'threshold'),
+                min_cluster_size=2  # Минимум 2 ключа в кластере
             )
             
             logger.info(f"✓ AI анализ завершён: {len(clusters)} кластеров")
+            
+            # ✅ СОХРАНИТЬ РЕЗУЛЬТАТЫ ДЛЯ ЭКСПОРТА
+            self._last_clusters = clusters
             
             # ✅ ПОЛУЧИТЬ СТАТИСТИКУ
             stats = self.analyzer.get_cluster_stats(clusters)
@@ -414,6 +422,38 @@ class WordStatApp:
             self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров")
             
             logger.info("✓ Результаты отображены в UI")
+        
+        except Exception as e:
+            logger.error(f"✗ Ошибка в потоке AI: {e}")
+            self.ui.set_status(f"❌ Ошибка AI: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _on_ai_export(self) -> None:
+        """Callback: Экспорт AI анализа"""
+        logger.info("💾 Экспорт AI анализа...")
+        
+        try:
+            if not self._last_clusters:
+                logger.warning("⚠ Нет результатов кластеризации для экспорта")
+                self.ui.set_status("⚠ Сначала запустите AI анализ")
+                return
+            
+            # Экспорт в Excel
+            success = self.exporter.export_ai_clusters(
+                self._last_clusters,
+                keywords=self.parser.state.keywords,
+                output_path="output_ai_clusters.xlsx"
+            )
+            
+            if success:
+                self.ui.set_status("✓ AI кластеры экспортированы в output_ai_clusters.xlsx")
+            else:
+                self.ui.set_status("❌ Ошибка экспорта AI кластеров")
+        
+        except Exception as e:
+            logger.error(f"✗ Ошибка экспорта AI: {e}")
+            self.ui.set_status(f"❌ Ошибка экспорта: {e}")
         
         except Exception as e:
             logger.error(f"✗ Ошибка в потоке AI: {e}")

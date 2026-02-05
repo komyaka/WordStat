@@ -18,7 +18,7 @@ import time
 import threading
 import json
 import tempfile
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

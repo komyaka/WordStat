@@ -40,6 +40,8 @@ class MainWindow(ctk.CTk):
         self.on_stop_callback: Optional[Callable] = None
         self.on_export_callback: Optional[Callable] = None
         self.on_ai_analyze_callback: Optional[Callable] = None
+        self.on_ai_export_callback: Optional[Callable] = None
+        self.on_ai_copy_callback: Optional[Callable] = None
         
         self.status_label = None
         self.keywords_table = None
@@ -342,7 +344,7 @@ class MainWindow(ctk.CTk):
         )
         self.ai_n_clusters.pack(fill='x', pady=5, padx=10)
         
-        # ✅ КНОПКА ЗАПУСКА АНАЛИЗА
+        # ✅ КНОПКИ АНАЛИЗА И ЭКСПОРТА
         button_frame = ctk.CTkFrame(container, fg_color=UIConfig.BG_PRIMARY)
         button_frame.pack(fill='x', padx=5, pady=10)
         
@@ -353,9 +355,34 @@ class MainWindow(ctk.CTk):
             fg_color=UIConfig.COLOR_INFO,
             text_color=UIConfig.TEXT_PRIMARY,
             font=UIConfig.FONT_NORMAL,
-            height=40
+            height=40,
+            width=200
         )
-        self.btn_ai_analyze.pack(side='left', padx=5, pady=10, fill='x', expand=True)
+        self.btn_ai_analyze.pack(side='left', padx=5, pady=10)
+        
+        self.btn_ai_export = ctk.CTkButton(
+            button_frame,
+            text="💾 Экспорт в Excel",
+            command=self._on_ai_export,
+            fg_color=UIConfig.COLOR_SUCCESS,
+            text_color=UIConfig.TEXT_PRIMARY,
+            font=UIConfig.FONT_NORMAL,
+            height=40,
+            width=150
+        )
+        self.btn_ai_export.pack(side='left', padx=5, pady=10)
+        
+        self.btn_ai_copy = ctk.CTkButton(
+            button_frame,
+            text="📋 Копировать",
+            command=self._on_ai_copy,
+            fg_color=UIConfig.COLOR_WARNING,
+            text_color=UIConfig.TEXT_PRIMARY,
+            font=UIConfig.FONT_NORMAL,
+            height=40,
+            width=150
+        )
+        self.btn_ai_copy.pack(side='left', padx=5, pady=10)
         
         # ✅ РЕЗУЛЬТАТЫ АНАЛИЗА
         results_label = ctk.CTkLabel(
@@ -578,6 +605,49 @@ class MainWindow(ctk.CTk):
                 self.set_status(f"❌ Ошибка: {e}")
         else:
             logger.warning("⚠ on_ai_analyze_callback не установлен")
+    
+    def _on_ai_export(self):
+        """Кнопка экспорта AI результатов"""
+        logger.info("💾 Клик по кнопке AI Экспорт")
+        
+        if hasattr(self, 'on_ai_export_callback') and self.on_ai_export_callback:
+            try:
+                self.set_status("💾 Экспорт AI анализа...")
+                self.on_ai_export_callback()
+                self.set_status("✓ AI анализ экспортирован")
+            except Exception as e:
+                logger.error(f"✗ Ошибка AI экспорта: {e}")
+                self.set_status(f"❌ Ошибка экспорта: {e}")
+        else:
+            logger.warning("⚠ on_ai_export_callback не установлен - нет результатов анализа")
+            self.set_status("⚠ Сначала запустите AI анализ")
+    
+    def _on_ai_copy(self):
+        """Кнопка копирования AI результатов в буфер обмена"""
+        logger.info("📋 Клик по кнопке AI Копировать")
+        
+        try:
+            if not hasattr(self, 'ai_results_textbox'):
+                self.set_status("⚠ Нет результатов для копирования")
+                return
+            
+            results_text = self.ai_results_textbox.get("1.0", "end-1c")
+            
+            if not results_text.strip():
+                self.set_status("⚠ Нет результатов для копирования")
+                return
+            
+            # Копируем в буфер обмена
+            self.clipboard_clear()
+            self.clipboard_append(results_text)
+            self.update()
+            
+            self.set_status("✓ Результаты скопированы в буфер обмена")
+            logger.info(f"✓ Скопировано {len(results_text)} символов")
+            
+        except Exception as e:
+            logger.error(f"✗ Ошибка копирования: {e}")
+            self.set_status(f"❌ Ошибка копирования: {e}")
     
     def update_stats(self, stats: Dict):
         """Обновить статистику"""
