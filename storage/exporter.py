@@ -320,3 +320,116 @@ class ExcelExporter:
         except Exception as e:
             logger.error(f"✗ Критическая ошибка export_content_plan: {e}")
             return False
+    
+    def export_ai_clusters(self,
+                          clusters: Dict[str, List[str]],
+                          keywords: Optional[Dict[str, 'KeywordData']] = None,
+                          output_path: str = "output_ai_clusters.xlsx") -> bool:
+        """
+        Экспорт AI кластеров
+        
+        Args:
+            clusters: Словарь кластеров {центр: [фразы]}
+            keywords: Опциональный словарь с данными ключевых слов
+            output_path: Путь для сохранения
+        """
+        try:
+            if not clusters:
+                logger.warning("⚠ Нет кластеров для экспорта")
+                return False
+            
+            self.wb = self.openpyxl.Workbook()
+            self.wb.remove(self.wb.active)
+            
+            # ЛИСТ 1: Все кластеры
+            ws_clusters = self.wb.create_sheet("Кластеры")
+            headers = ["Кластер", "Фраза", "Count", "Глубина"]
+            ws_clusters.append(headers)
+            
+            for col_idx, header in enumerate(headers, 1):
+                cell = ws_clusters.cell(row=1, column=col_idx)
+                self._format_header_cell(cell, header)
+            
+            row_idx = 2
+            for cluster_name, phrases in clusters.items():
+                for phrase in phrases:
+                    ws_clusters.cell(row=row_idx, column=1).value = cluster_name
+                    ws_clusters.cell(row=row_idx, column=2).value = phrase
+                    
+                    # Добавить данные из keywords если есть
+                    if keywords and phrase in keywords:
+                        kwd = keywords[phrase]
+                        ws_clusters.cell(row=row_idx, column=3).value = int(kwd.count)
+                        ws_clusters.cell(row=row_idx, column=4).value = int(kwd.depth)
+                    else:
+                        ws_clusters.cell(row=row_idx, column=3).value = ""
+                        ws_clusters.cell(row=row_idx, column=4).value = ""
+                    
+                    row_idx += 1
+            
+            ws_clusters.column_dimensions['A'].width = 45
+            ws_clusters.column_dimensions['B'].width = 45
+            ws_clusters.column_dimensions['C'].width = 15
+            ws_clusters.column_dimensions['D'].width = 12
+            
+            # ЛИСТ 2: Сводка по кластерам
+            ws_summary = self.wb.create_sheet("Сводка")
+            summary_headers = ["Кластер", "Количество фраз", "% от общего"]
+            ws_summary.append(summary_headers)
+            
+            for col_idx, header in enumerate(summary_headers, 1):
+                cell = ws_summary.cell(row=1, column=col_idx)
+                self._format_header_cell(cell, header)
+            
+            total_phrases = sum(len(phrases) for phrases in clusters.values())
+            row_idx = 2
+            
+            for cluster_name, phrases in sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True):
+                ws_summary.cell(row=row_idx, column=1).value = cluster_name
+                ws_summary.cell(row=row_idx, column=2).value = len(phrases)
+                percentage = (len(phrases) / total_phrases * 100) if total_phrases > 0 else 0
+                ws_summary.cell(row=row_idx, column=3).value = f"{percentage:.1f}%"
+                row_idx += 1
+            
+            # Итого
+            ws_summary.cell(row=row_idx, column=1).value = "ИТОГО"
+            ws_summary.cell(row=row_idx, column=2).value = total_phrases
+            ws_summary.cell(row=row_idx, column=3).value = "100%"
+            
+            ws_summary.column_dimensions['A'].width = 45
+            ws_summary.column_dimensions['B'].width = 20
+            ws_summary.column_dimensions['C'].width = 15
+            
+            # ЛИСТ 3: Настройки экспорта
+            ws_settings = self.wb.create_sheet("Настройки")
+            settings_data = [
+                ["Параметр", "Значение"],
+                ["Дата экспорта", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+                ["Всего кластеров", len(clusters)],
+                ["Всего фраз", total_phrases],
+                ["Средний размер кластера", round(total_phrases / len(clusters), 1) if clusters else 0],
+            ]
+            
+            for row_data in settings_data:
+                ws_settings.append(row_data)
+            
+            for col_idx, header in enumerate(["Параметр", "Значение"], 1):
+                cell = ws_settings.cell(row=1, column=col_idx)
+                self._format_header_cell(cell, header)
+            
+            ws_settings.column_dimensions['A'].width = 30
+            ws_settings.column_dimensions['B'].width = 45
+            
+            try:
+                self.wb.save(output_path)
+                logger.info(f"✓ AI кластеры экспортированы: {output_path}")
+                return True
+            except Exception as e:
+                logger.error(f"✗ Ошибка сохранения AI кластеров: {e}")
+                return False
+        
+        except Exception as e:
+            logger.error(f"✗ Критическая ошибка export_ai_clusters: {e}")
+            import traceback
+            traceback.print_exc()
+            return False

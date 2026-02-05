@@ -102,7 +102,9 @@ class WordStatApp:
         try:
             self.analyzer = SemanticAnalyzer(
                 lemmatize=self.config.get('ai', {}).get('lemmatize', True),
-                max_features=self.config.get('ai', {}).get('max_features', 1000)
+                max_features=self.config.get('ai', {}).get('max_features', 1000),
+                embedding_model=self.config.get('ai', {}).get('embedding_model', 'multilingual'),
+                use_semantic=self.config.get('ai', {}).get('use_semantic', True)
             )
             logger.info("✓ SemanticAnalyzer инициализирован")
         except Exception as e:
@@ -130,6 +132,10 @@ class WordStatApp:
         self.ui.on_stop_callback = self._on_ui_stop
         self.ui.on_export_callback = self._on_ui_export
         self.ui.on_ai_analyze_callback = self._on_ai_analyze
+        self.ui.on_ai_export_callback = self._on_ai_export
+        
+        # ✅ ХРАНЕНИЕ РЕЗУЛЬТАТОВ КЛАСТЕРИЗАЦИИ
+        self._last_clusters = {}
         
         # ✅ УСТАНОВИТЬ CALLBACKS В PARSER
         self.parser.ui_callback = self._on_parser_update
@@ -386,10 +392,14 @@ class WordStatApp:
                 self.parser.state.keywords,
                 threshold=settings.get('threshold', 0.5),
                 n_clusters=settings.get('n_clusters', 10),
-                clustering_mode=settings.get('clustering_mode', 'threshold')
+                clustering_mode=settings.get('clustering_mode', 'threshold'),
+                min_cluster_size=2  # Минимум 2 ключа в кластере
             )
             
             logger.info(f"✓ AI анализ завершён: {len(clusters)} кластеров")
+            
+            # ✅ СОХРАНИТЬ РЕЗУЛЬТАТЫ ДЛЯ ЭКСПОРТА
+            self._last_clusters = clusters
             
             # ✅ ПОЛУЧИТЬ СТАТИСТИКУ
             stats = self.analyzer.get_cluster_stats(clusters)
@@ -397,9 +407,11 @@ class WordStatApp:
             # ✅ ФОРМАТИРОВАТЬ РЕЗУЛЬТАТЫ
             results_text = self.analyzer.format_clusters(clusters)
             
+            clustering_method = stats.get('clustering_method', 'unknown')
             stats_text = f"""
 📊 СТАТИСТИКА КЛАСТЕРИЗАЦИИ
 {'=' * 50}
+Метод: {clustering_method}
 Всего кластеров: {stats.get('total_clusters', 0)}
 Всего ключевых слов: {stats.get('total_keywords', 0)}
 Средний размер кластера: {stats.get('avg_cluster_size', 0):.1f}
@@ -411,7 +423,7 @@ class WordStatApp:
             if hasattr(self.ui, 'display_ai_results'):
                 self.ui.display_ai_results(results_text, stats_text)
             
-            self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров")
+            self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров ({clustering_method})")
             
             logger.info("✓ Результаты отображены в UI")
         
@@ -420,6 +432,32 @@ class WordStatApp:
             self.ui.set_status(f"❌ Ошибка AI: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _on_ai_export(self) -> None:
+        """Callback: Экспорт AI анализа"""
+        logger.info("💾 Экспорт AI анализа...")
+        
+        try:
+            if not self._last_clusters:
+                logger.warning("⚠ Нет результатов кластеризации для экспорта")
+                self.ui.set_status("⚠ Сначала запустите AI анализ")
+                return
+            
+            # Экспорт в Excel
+            success = self.exporter.export_ai_clusters(
+                self._last_clusters,
+                keywords=self.parser.state.keywords,
+                output_path="output_ai_clusters.xlsx"
+            )
+            
+            if success:
+                self.ui.set_status("✓ AI кластеры экспортированы в output_ai_clusters.xlsx")
+            else:
+                self.ui.set_status("❌ Ошибка экспорта AI кластеров")
+        
+        except Exception as e:
+            logger.error(f"✗ Ошибка экспорта AI: {e}")
+            self.ui.set_status(f"❌ Ошибка экспорта: {e}")
     
     def _on_parser_update(self, stats: Dict) -> None:
         """Callback: Обновление статистики (периодический)"""
