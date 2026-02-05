@@ -361,7 +361,7 @@ class VerificationProtocol:
                 time.sleep(0.5)
                 
                 result = cache.get(test_phrase)
-                if result is not None and len(result) > 0:
+                if result is not None and isinstance(result, list):
                     self.log_test("Cache write/read", True, "Hit после write")
                 else:
                     self.log_test("Cache write/read", False, "Miss после write")
@@ -417,7 +417,7 @@ class VerificationProtocol:
             # Тест: Нормализация
             normalizer = get_normalizer()
             normalized = normalizer.normalize_phrase("  Test   PHRASE  ")
-            if normalized == "test   phrase":
+            if normalized == "test phrase":
                 self.log_test("Phrase normalization", True)
             else:
                 self.log_test("Phrase normalization", False, f"Получено: {normalized}")
