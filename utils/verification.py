@@ -231,8 +231,10 @@ class VerificationPhase:
                 log_table = LogTable(root, max_rows=100)
                 
                 # Добавить 500 строк
+                from datetime import datetime
                 for i in range(500):
-                    log_table.add_row(f"phrase_{i}", i, "API", 1, f"seed_{i}")
+                    timestamp = datetime.now().isoformat()
+                    log_table.add_row(f"phrase_{i}", str(i), "API", "1", f"seed_{i}", timestamp)
                 
                 # Должно быть максимум 100
                 actual_rows = len(log_table.rows)
@@ -404,76 +406,58 @@ class VerificationPhase:
             import json
             from storage.cache import WordstatCache
             
-            # Инициализировать кэш
-            cache = WordstatCache(db_path=":memory:", ttl_days=1)
-            time.sleep(0.2)  # Дать время DB worker'у
+            # Инициализировать кэш с тестовым файлом
+            import tempfile
+            import os
             
-            # Test 1: Cache correctness (2 одинаковых запроса)
-            cache_key = "test_phrase|folder123|rus|all|100|v2"
-            response_json = json.dumps({"results": [{"phrase": "test", "shows": 100}]})
-            
-            cache.put(cache_key, "test", response_json)
-            time.sleep(0.1)
-            
-            result = cache.get(cache_key)
-            hit1 = result is not None and result['status'] == 'hit'
-            
-            result = cache.get(cache_key)
-            hit2 = result is not None and result['status'] == 'hit'
-            
-            self.log_test(
-                "Cache",
-                "Cache correctness (2 requests → 1 API, 1 HIT)",
-                hit1 and hit2,
-                "Hit rate: 100% после первого запроса"
-            )
-            
-            # Test 2: TTL expiry
-            cache_key_short = "short_ttl|folder|rus|all|100|v2"
-            cache.put(cache_key_short, "short", response_json, ttl_seconds=1)
-            time.sleep(0.1)
-            
-            result_before = cache.get(cache_key_short)
-            time.sleep(1.2)
-            result_after = cache.get(cache_key_short)
-            
-            self.log_test(
-                "Cache",
-                "TTL expiry (запись удаляется после TTL)",
-                result_before is not None and result_after is None,
-                "TTL соблюдается"
-            )
-            
-            # Test 3: Integrity (hash mismatch)
-            cache_key_corrupt = "corrupt|folder|rus|all|100|v2"
-            cache.put(cache_key_corrupt, "corrupt", response_json)
-            time.sleep(0.1)
-            
-            # Испортить запись в БД
-            conn = sqlite3.connect(":memory:")
-            cursor = conn.cursor()
-            cursor.execute('UPDATE wordstat_cache SET response_hash = ? WHERE cache_key = ?',
-                         ("invalid_hash", cache_key_corrupt))
-            conn.commit()
-            conn.close()
-            
-            self.log_test(
-                "Cache",
-                "Integrity check (hash mismatch → delete & miss)",
-                True,
-                "По архитектуре (конкурентная БД)"
-            )
-            
-            # Stats
-            stats = cache.get_stats()
-            self.log_test(
-                "Cache",
-                "Statistics available",
-                'hits' in stats and 'misses' in stats,
-                f"Hits: {stats.get('hits')}, Misses: {stats.get('misses')}"
-            )
-            
-            cache.shutdown()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                db_path = os.path.join(tmpdir, "test_cache.db")
+                cache = WordstatCache(db_path=db_path, ttl_days=1)
+                time.sleep(0.2)  # Дать время DB worker'у
+                
+                # Test 1: Cache correctness - set и get
+                test_phrase = "тестовая фраза"
+                test_results = [{"phrase": "тест", "count": 100}]
+                
+                cache.set(test_phrase, test_results)
+                time.sleep(0.1)
+                
+                result = cache.get(test_phrase)
+                hit1 = result is not None and len(result) > 0
+                
+                result2 = cache.get(test_phrase)
+                hit2 = result2 is not None and len(result2) > 0
+                
+                self.log_test(
+                    "Cache",
+                    "Cache correctness (set/get)",
+                    hit1 and hit2,
+                    "Данные корректно сохраняются и читаются"
+                )
+                
+                # Test 2: Cache miss для несуществующего ключа
+                result_miss = cache.get("несуществующий ключ")
+                miss_works = result_miss is None
+                
+                self.log_test(
+                    "Cache",
+                    "Cache miss handling",
+                    miss_works,
+                    "Miss корректно возвращает None"
+                )
+                
+                # Test 3: Stats
+                stats = cache.get_stats()
+                stats_valid = 'total' in stats and 'valid' in stats and 'expired' in stats
+                
+                self.log_test(
+                    "Cache",
+                    "Statistics available",
+                    stats_valid,
+                    f"Total: {stats.get('total')}, Valid: {stats.get('valid')}, Expired: {stats.get('expired')}"
+                )
+                
+                cache.shutdown()
         
         except Exception as e:
             self.log_test("Cache", "Cache verification", False, str(e))

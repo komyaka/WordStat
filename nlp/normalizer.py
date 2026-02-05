@@ -99,6 +99,31 @@ class Normalizer:
             logger.error(f"✗ Ошибка lemmatize_phrase: {e}")
             return phrase.split()
     
+    def lemmatize_set(self, phrase: str) -> Set[str]:
+        """
+        Лемматизировать фразу и вернуть множество лемм.
+        Используется для сравнения наличия минус-слов.
+        
+        Args:
+            phrase: Фраза для лемматизации
+            
+        Returns:
+            Множество лемм (без стоп-слов)
+        """
+        try:
+            lemmas = self.lemmatize_phrase(phrase)
+            # Исключаем стоп-слова и возвращаем как множество
+            result = set()
+            for lemma in lemmas:
+                lower_lemma = lemma.lower()
+                if lower_lemma not in RUSSIAN_STOP_WORDS:
+                    result.add(lower_lemma)
+            return result
+        except Exception as e:
+            logger.error(f"✗ Ошибка lemmatize_set: {e}")
+            normalized = self.normalize_phrase(phrase)
+            return set(normalized.split()) if normalized else set()
+    
     def remove_stop_words(self, phrase: str) -> str:
         """
         Удалить стоп-слова из фразы
