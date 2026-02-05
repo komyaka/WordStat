@@ -7,6 +7,24 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def check_for_null_bytes(filepath: str) -> bool:
+    """Проверить файл на наличие null bytes (нулевых байтов).
+    
+    Null bytes в исходном коде Python вызывают SyntaxError.
+    Возвращает True если файл чист, False если найдены null bytes.
+    """
+    try:
+        with open(filepath, 'rb') as f:
+            content = f.read()
+            if b'\x00' in content:
+                return False
+        return True
+    except (IOError, OSError) as e:
+        print(f"⚠ Не удалось прочитать файл {filepath}: {e}")
+        return False
+
+
 def check_syntax(directory: str) -> tuple:
     """Проверить синтаксис всех Python файлов"""
     errors = []
@@ -19,6 +37,14 @@ def check_syntax(directory: str) -> tuple:
         for file in files:
             if file.endswith('.py'):
                 filepath = os.path.join(root, file)
+                
+                # Сначала проверяем на null bytes
+                if not check_for_null_bytes(filepath):
+                    error_msg = "Файл содержит null bytes (нулевые байты). Возможно файл повреждён."
+                    print(f"✗ {filepath}: {error_msg}")
+                    errors.append((filepath, error_msg))
+                    continue
+                
                 try:
                     py_compile.compile(filepath, doraise=True)
                     print(f"✓ {filepath}")
