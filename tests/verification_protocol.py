@@ -352,17 +352,15 @@ class VerificationProtocol:
                 cache = WordstatCache(db_path=db_path, ttl_days=1)
                 
                 # Тест 1: Write/Read
-                cache.put(
-                    cache_key="test_phrase|123",
-                    phrase="test phrase",
-                    response_json='{"results": []}'
-                )
+                test_phrase = "test phrase"
+                test_results = [{"phrase": "result1", "count": 100}]
+                cache.set(test_phrase, test_results)
                 
                 # Даём время на запись
                 time.sleep(0.5)
                 
-                result = cache.get("test_phrase|123")
-                if result and result['status'] == 'hit':
+                result = cache.get(test_phrase)
+                if result and isinstance(result, list):
                     self.log_test("Cache write/read", True, "Hit после write")
                 else:
                     self.log_test("Cache write/read", False, "Miss после write")
@@ -376,8 +374,8 @@ class VerificationProtocol:
                 
                 # Тест 3: Stats
                 stats = cache.get_stats()
-                if stats and 'hits' in stats and 'misses' in stats:
-                    self.log_test("Cache statistics", True, f"Hits: {stats['hits']}, Misses: {stats['misses']}")
+                if stats and 'total' in stats and 'valid' in stats:
+                    self.log_test("Cache statistics", True, f"Total: {stats['total']}, Valid: {stats['valid']}")
                 else:
                     self.log_test("Cache statistics", False, "Статистика не доступна")
                 
@@ -418,10 +416,10 @@ class VerificationProtocol:
             # Тест: Нормализация
             normalizer = get_normalizer()
             normalized = normalizer.normalize_phrase("  Test   PHRASE  ")
-            if normalized == "test   phrase":
+            if normalized == "test phrase":
                 self.log_test("Phrase normalization", True)
             else:
-                self.log_test("Phrase normalization", False, f"Получено: {normalized}")
+                self.log_test("Phrase normalization", False, f"Получено: '{normalized}', ожидалось: 'test phrase'")
             
             # Тест: Фильтры
             filter_obj = KeywordFilter()

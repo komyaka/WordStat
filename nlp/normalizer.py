@@ -99,6 +99,23 @@ class Normalizer:
             logger.error(f"✗ Ошибка lemmatize_phrase: {e}")
             return phrase.split()
     
+    def lemmatize_set(self, phrase: str) -> Set[str]:
+        """
+        Получить множество лемм из фразы
+        
+        Args:
+            phrase: Входная фраза
+            
+        Returns:
+            Множество лемм (нормализованных слов)
+        """
+        try:
+            lemmas = self.lemmatize_phrase(phrase)
+            return set(lemmas)
+        except Exception as e:
+            logger.error(f"✗ Ошибка lemmatize_set: {e}")
+            return set(phrase.lower().split())
+    
     def remove_stop_words(self, phrase: str) -> str:
         """
         Удалить стоп-слова из фразы

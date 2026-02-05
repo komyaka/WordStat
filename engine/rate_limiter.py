@@ -35,8 +35,8 @@ class RateLimiter:
             raise ValueError("max_per_hour должен быть >= 1")
         if max_per_day < 1:
             raise ValueError("max_per_day должен быть >= 1")
-        if max_per_day > max_per_hour:
-            raise ValueError("max_per_day не может быть больше max_per_hour")
+        if max_per_day < max_per_hour:
+            raise ValueError("max_per_day не может быть меньше max_per_hour")
         
         self.max_rps = max_rps
         self.max_per_hour = max_per_hour
