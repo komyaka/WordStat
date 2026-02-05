@@ -133,6 +133,22 @@ class Normalizer:
             logger.error(f"✗ Ошибка get_word_count: {e}")
             return 0
     
+    def lemmatize_set(self, phrase: str) -> Set[str]:
+        """
+        Лемматизировать фразу и вернуть множество лемм.
+        Используется для проверки минус-слов.
+        
+        Returns:
+            Множество лемм из фразы
+        """
+        try:
+            lemmas = self.lemmatize_phrase(phrase)
+            return set(lemmas)
+        
+        except Exception as e:
+            logger.error(f"✗ Ошибка lemmatize_set: {e}")
+            return set()
+    
     @staticmethod
     def is_valid_keyword(phrase: str) -> bool:
         """

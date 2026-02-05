@@ -54,6 +54,8 @@ class ConfigManager:
             'n_clusters': 10,
             'max_features': 1000,
             'ngram_range': [1, 2],
+            'embedding_model': 'multilingual',
+            'use_semantic': True,
         },
         'ui': {
             'theme': 'dark',
