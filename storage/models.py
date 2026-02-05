@@ -38,16 +38,29 @@ class KeywordData:
         if not isinstance(data, dict):
             raise ValueError(f"Expected dict, got {type(data)}")
         
+        # Safe conversion to int for count and depth
+        try:
+            count_val = data.get('count', 0)
+            count = int(count_val) if count_val is not None else 0
+        except (ValueError, TypeError):
+            count = 0
+        
+        try:
+            depth_val = data.get('depth', 1)
+            depth = int(depth_val) if depth_val is not None else 1
+        except (ValueError, TypeError):
+            depth = 1
+        
         return cls(
-            phrase=data.get('phrase', ''),
-            count=int(data.get('count', 0)),
-            seed=data.get('seed', ''),
-            depth=int(data.get('depth', 1)),
+            phrase=str(data.get('phrase', '')),
+            count=count,
+            seed=str(data.get('seed', '')),
+            depth=depth,
             source=data.get('source'),
             geo_tokens=list(data.get('geo_tokens', [])),
             intent=data.get('intent'),
-            timestamp=data.get('timestamp', datetime.now().isoformat()),
-            origin=data.get('origin', 'API'),
+            timestamp=str(data.get('timestamp', datetime.now().isoformat())),
+            origin=str(data.get('origin', 'API')),
         )
 
 @dataclass

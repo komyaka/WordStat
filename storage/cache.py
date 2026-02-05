@@ -117,6 +117,7 @@ class WordstatCache:
     
     def _db_set(self, phrase: str, results: List[Dict]):
         """Установить значение в БД (синхронно)"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -130,15 +131,17 @@ class WordstatCache:
             ''', (phrase, results_json, now, self.ttl_seconds))
             
             conn.commit()
-            conn.close()
-            
             logger.debug(f"✓ Кэш сохранён: {phrase}")
         
         except Exception as e:
             logger.error(f"✗ Ошибка сохранения кэша: {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def _db_get(self, phrase: str) -> Optional[List[Dict]]:
         """Получить значение из БД"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -151,7 +154,6 @@ class WordstatCache:
             ''', (phrase,))
             
             row = cursor.fetchone()
-            conn.close()
             
             if not row:
                 logger.debug(f"⊘ Кэш не найден: {phrase}")
@@ -172,9 +174,13 @@ class WordstatCache:
         except Exception as e:
             logger.error(f"✗ Ошибка получения кэша: {e}")
             return None
+        finally:
+            if conn:
+                conn.close()
     
     def _db_delete(self, phrase: str):
         """Удалить из БД"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -182,15 +188,17 @@ class WordstatCache:
             cursor.execute('DELETE FROM cache WHERE phrase = ?', (phrase,))
             
             conn.commit()
-            conn.close()
-            
             logger.debug(f"✓ Кэш удалён: {phrase}")
         
         except Exception as e:
             logger.error(f"✗ Ошибка удаления кэша: {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def _cleanup_expired(self):
         """Очистить устаревшие записи"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -204,13 +212,15 @@ class WordstatCache:
             
             deleted = cursor.rowcount
             conn.commit()
-            conn.close()
             
             if deleted > 0:
                 logger.info(f"🧹 Очистка кэша: удалено {deleted} устаревших записей")
         
         except Exception as e:
             logger.error(f"✗ Ошибка очистки кэша: {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def get(self, phrase: str) -> Optional[List[Dict]]:
         """Получить из кэша"""
@@ -242,6 +252,7 @@ class WordstatCache:
     
     def clear(self):
         """Очистить весь кэш"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -249,15 +260,17 @@ class WordstatCache:
             cursor.execute('DELETE FROM cache')
             
             conn.commit()
-            conn.close()
-            
             logger.info("🧹 Кэш полностью очищен")
         
         except Exception as e:
             logger.error(f"✗ Ошибка clear(): {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def get_stats(self) -> Dict:
         """Получить статистику кэша"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -272,8 +285,6 @@ class WordstatCache:
             ''', (now,))
             valid = cursor.fetchone()[0]
             
-            conn.close()
-            
             return {
                 'total': total,
                 'valid': valid,
@@ -283,6 +294,9 @@ class WordstatCache:
         except Exception as e:
             logger.error(f"✗ Ошибка get_stats(): {e}")
             return {'total': 0, 'valid': 0, 'expired': 0}
+        finally:
+            if conn:
+                conn.close()
     
     def shutdown(self):
         """Завершить работу"""
