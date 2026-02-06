@@ -43,6 +43,11 @@ class ClipboardHandler:
             self.widget.bind("<Control-x>", self._on_cut_event)
             self.widget.bind("<Control-v>", self._on_paste_event)
             self.widget.bind("<Control-a>", self._on_select_all_event)
+            # Add uppercase bindings for different keyboard states
+            self.widget.bind("<Control-C>", self._on_copy_event)
+            self.widget.bind("<Control-X>", self._on_cut_event)
+            self.widget.bind("<Control-V>", self._on_paste_event)
+            self.widget.bind("<Control-A>", self._on_select_all_event)
         except Exception as e:
             logger.error(f"✗ Ошибка setup_keybindings: {e}")
     

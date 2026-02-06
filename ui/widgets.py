@@ -12,6 +12,9 @@ from utils.logger import get_logger
 
 logger = get_logger('WordStat.UI.Widgets')
 
+# Delay for counter update after paste (allows paste operation to complete)
+PASTE_COUNTER_UPDATE_DELAY_MS = 100
+
 
 class LabeledEntry(ctk.CTkFrame):
     """Entry с меткой слева"""
@@ -91,13 +94,28 @@ class LabeledTextbox(ctk.CTkFrame):
             self.counter.pack(anchor='e', pady=(UIConfig.PADDING_SMALL, 0))
             
             self.textbox.bind('<KeyRelease>', self._on_text_change)
+            # Update counter after paste operations (scheduled to allow paste to complete)
+            # Note: ClipboardHandler handles Ctrl+V and returns 'break', but we still need
+            # to update the counter after programmatic text insertion
+            self.textbox.bind('<<Modified>>', self._on_text_modified, add='+')
         
         except Exception as e:
             logger.error(f"✗ Ошибка инициализации LabeledTextbox: {e}")
     
     def _on_text_change(self, event=None):
-        """Обновить счётчик строк"""
+        """Обновить счётчик строк при KeyRelease"""
         self._update_counter()
+    
+    def _on_text_modified(self, event=None):
+        """Обновить счётчик строк при Modified (includes paste)"""
+        # Reset the modified flag to allow future events
+        try:
+            if self.textbox.edit_modified():
+                self.textbox.edit_modified(False)
+                # Schedule counter update to allow operation to complete
+                self.after(PASTE_COUNTER_UPDATE_DELAY_MS, self._update_counter)
+        except Exception as e:
+            logger.debug(f"⚠ Ошибка _on_text_modified: {e}")
     
     def _update_counter(self):
         """Обновить счётчик"""
