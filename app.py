@@ -191,6 +191,10 @@ class WordStatApp:
                 'max_day': self.config.get('quotas', {}).get('max_per_day', 1000),
             }
             self.ui.set_settings(settings)
+            
+            # Load filter settings
+            filter_settings = self.config.get('filters', {})
+            self.ui.set_filter_settings(filter_settings)
         except Exception as e:
             logger.warning(f"⚠ Ошибка загрузки конфига в UI: {e}")
     
@@ -207,6 +211,17 @@ class WordStatApp:
             self.config['quotas']['max_rps'] = settings.get('max_rps', 10)
             self.config['quotas']['max_per_hour'] = settings.get('max_hour', 10000)
             self.config['quotas']['max_per_day'] = settings.get('max_day', 1000)
+            
+            # Save filter settings
+            filter_settings = self.ui.get_filter_settings()
+            self.config['filters']['min_count'] = filter_settings.get('min_count', 10)
+            self.config['filters']['min_words'] = filter_settings.get('min_words', 1)
+            self.config['filters']['max_words'] = filter_settings.get('max_words', 10)
+            self.config['filters']['include_regex'] = filter_settings.get('include_regex', '')
+            self.config['filters']['exclude_regex'] = filter_settings.get('exclude_regex', '')
+            self.config['filters']['exclude_substrings'] = filter_settings.get('exclude_substrings', '')
+            self.config['filters']['minus_words'] = filter_settings.get('minus_words', '')
+            self.config['filters']['minus_word_mode'] = filter_settings.get('minus_word_mode', 'any')
             
             self.config_manager.save()
             logger.info("✓ Конфиг сохранён")

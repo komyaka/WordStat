@@ -873,6 +873,22 @@ class MainWindow(ctk.CTk):
             logger.error(f"✗ Ошибка get_filter_settings: {e}")
             return {}
     
+    def set_filter_settings(self, settings: Dict):
+        """Установить настройки фильтров"""
+        try:
+            self.filter_min_count.set(str(settings.get('min_count', 10)))
+            self.filter_min_words.set(str(settings.get('min_words', 1)))
+            self.filter_max_words.set(str(settings.get('max_words', 10)))
+            self.filter_include_regex.set(settings.get('include_regex', ''))
+            self.filter_exclude_regex.set(settings.get('exclude_regex', ''))
+            self.filter_exclude_substrings.set(settings.get('exclude_substrings', ''))
+            self.filter_minus_words.set(settings.get('minus_words', ''))
+            self.filter_minus_mode.set(settings.get('minus_word_mode', 'any'))
+            
+            logger.info("✓ Настройки фильтров установлены в UI")
+        except Exception as e:
+            logger.error(f"✗ Ошибка set_filter_settings: {e}")
+    
     def get_ai_settings(self) -> Dict:
         """Получить AI настройки"""
         try:

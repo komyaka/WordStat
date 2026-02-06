@@ -91,6 +91,9 @@ class LabeledTextbox(ctk.CTkFrame):
             self.counter.pack(anchor='e', pady=(UIConfig.PADDING_SMALL, 0))
             
             self.textbox.bind('<KeyRelease>', self._on_text_change)
+            # Update counter after paste operations
+            self.textbox.bind('<Control-v>', lambda e: self.after(100, self._update_counter))
+            self.textbox.bind('<Control-V>', lambda e: self.after(100, self._update_counter))
         
         except Exception as e:
             logger.error(f"✗ Ошибка инициализации LabeledTextbox: {e}")
