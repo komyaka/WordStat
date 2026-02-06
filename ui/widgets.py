@@ -12,6 +12,9 @@ from utils.logger import get_logger
 
 logger = get_logger('WordStat.UI.Widgets')
 
+# Delay for counter update after paste (allows paste operation to complete)
+PASTE_COUNTER_UPDATE_DELAY_MS = 100
+
 
 class LabeledEntry(ctk.CTkFrame):
     """Entry с меткой слева"""
@@ -92,8 +95,8 @@ class LabeledTextbox(ctk.CTkFrame):
             
             self.textbox.bind('<KeyRelease>', self._on_text_change)
             # Update counter after paste operations
-            self.textbox.bind('<Control-v>', lambda e: self.after(100, self._update_counter))
-            self.textbox.bind('<Control-V>', lambda e: self.after(100, self._update_counter))
+            self.textbox.bind('<Control-v>', lambda e: self.after(PASTE_COUNTER_UPDATE_DELAY_MS, self._update_counter))
+            self.textbox.bind('<Control-V>', lambda e: self.after(PASTE_COUNTER_UPDATE_DELAY_MS, self._update_counter))
         
         except Exception as e:
             logger.error(f"✗ Ошибка инициализации LabeledTextbox: {e}")
