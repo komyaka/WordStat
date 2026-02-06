@@ -15,6 +15,69 @@ from .clipboard_handler import ClipboardHandler
 
 logger = get_logger('WordStat.UI')
 
+
+def _safe_int(value, default, min_val=None, max_val=None):
+    """Безопасное преобразование в int с валидацией диапазона
+    
+    Args:
+        value: Значение для преобразования (строка или число)
+        default: Значение по умолчанию
+        min_val: Минимально допустимое значение (опционально)
+        max_val: Максимально допустимое значение (опционально)
+    
+    Returns:
+        int: Валидное целое число в заданном диапазоне
+    """
+    try:
+        # Если пустая строка или None, вернуть default
+        if not value:
+            return default
+        
+        # Преобразовать в int
+        result = int(value)
+        
+        # Применить ограничения
+        if min_val is not None and result < min_val:
+            return min_val
+        if max_val is not None and result > max_val:
+            return max_val
+        
+        return result
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(value, default, min_val=None, max_val=None):
+    """Безопасное преобразование в float с валидацией диапазона
+    
+    Args:
+        value: Значение для преобразования (строка или число)
+        default: Значение по умолчанию
+        min_val: Минимально допустимое значение (опционально)
+        max_val: Максимально допустимое значение (опционально)
+    
+    Returns:
+        float: Валидное число с плавающей точкой в заданном диапазоне
+    """
+    try:
+        # Если пустая строка или None, вернуть default
+        if not value:
+            return default
+        
+        # Преобразовать в float
+        result = float(value)
+        
+        # Применить ограничения
+        if min_val is not None and result < min_val:
+            return min_val
+        if max_val is not None and result > max_val:
+            return max_val
+        
+        return result
+    except (ValueError, TypeError):
+        return default
+
+
 # ✅ УСТАНОВИТЬ ТЕМУ
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -417,6 +480,7 @@ class MainWindow(ctk.CTk):
             height=300
         )
         self.ai_results_textbox.pack(fill='both', expand=True, padx=5, pady=5)
+        ClipboardHandler(self.ai_results_textbox)
         
         # ✅ СТАТИСТИКА
         stats_label = ctk.CTkLabel(
@@ -433,6 +497,7 @@ class MainWindow(ctk.CTk):
             height=100
         )
         self.ai_stats_textbox.pack(fill='x', padx=5, pady=5)
+        ClipboardHandler(self.ai_stats_textbox)
     
     def _create_tab_settings(self):
         """Создать вкладку Настройки"""
@@ -771,12 +836,12 @@ class MainWindow(ctk.CTk):
             return {
                 'api_key': self.settings_api_key.get() or '',
                 'folder_id': self.settings_folder_id.get() or '',
-                'depth': int(self.settings_depth.get() or 2),
-                'top_n': int(self.settings_top_n.get() or 3),
-                'num_phrases': int(self.settings_num_phrases.get() or 100),
-                'max_rps': int(self.settings_max_rps.get() or 10),
-                'max_hour': int(self.settings_max_hour.get() or 10000),
-                'max_day': int(self.settings_max_day.get() or 1000),
+                'depth': _safe_int(self.settings_depth.get(), default=2, min_val=1, max_val=3),
+                'top_n': _safe_int(self.settings_top_n.get(), default=3, min_val=1, max_val=5),
+                'num_phrases': _safe_int(self.settings_num_phrases.get(), default=100, min_val=1, max_val=100),
+                'max_rps': _safe_int(self.settings_max_rps.get(), default=10, min_val=1, max_val=100),
+                'max_hour': _safe_int(self.settings_max_hour.get(), default=10000, min_val=1),
+                'max_day': _safe_int(self.settings_max_day.get(), default=1000, min_val=1),
             }
         except Exception as e:
             logger.error(f"✗ Ошибка get_settings: {e}")
@@ -795,9 +860,9 @@ class MainWindow(ctk.CTk):
         """Получить настройки фильтров"""
         try:
             return {
-                'min_count': int(self.filter_min_count.get() or 1),
-                'min_words': int(self.filter_min_words.get() or 1),
-                'max_words': int(self.filter_max_words.get() or 10),
+                'min_count': _safe_int(self.filter_min_count.get(), default=1, min_val=1),
+                'min_words': _safe_int(self.filter_min_words.get(), default=1, min_val=1),
+                'max_words': _safe_int(self.filter_max_words.get(), default=10, min_val=1),
                 'include_regex': self.filter_include_regex.get() or '',
                 'exclude_regex': self.filter_exclude_regex.get() or '',
                 'exclude_substrings': self.filter_exclude_substrings.get() or '',
@@ -816,10 +881,10 @@ class MainWindow(ctk.CTk):
             
             return {
                 'lemmatize': lemmatize,
-                'max_features': int(self.ai_max_features.get() or 1000),
+                'max_features': _safe_int(self.ai_max_features.get(), default=1000, min_val=1),
                 'clustering_mode': self.ai_clustering_mode.get() or 'threshold',
-                'threshold': float(self.ai_threshold.get() or 0.5),
-                'n_clusters': int(self.ai_n_clusters.get() or 10),
+                'threshold': _safe_float(self.ai_threshold.get(), default=0.5, min_val=0.0, max_val=1.0),
+                'n_clusters': _safe_int(self.ai_n_clusters.get(), default=10, min_val=2),
             }
         except Exception as e:
             logger.error(f"✗ Ошибка get_ai_settings: {e}")
