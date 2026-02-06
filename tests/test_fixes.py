@@ -50,15 +50,42 @@ def test_widgets_paste_counter():
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Check for paste counter updates
-    has_lowercase_paste = '<Control-v>' in content and '_update_counter' in content
-    has_uppercase_paste = '<Control-V>' in content and '_update_counter' in content
-    
-    if has_lowercase_paste and has_uppercase_paste:
-        print(f"✓ PASSED: Counter update bound to paste operations")
-        return True
-    else:
-        print(f"✗ FAILED: Missing counter update on paste")
+    # Use AST to find the _on_text_modified method and verify it updates counter
+    try:
+        tree = ast.parse(content)
+        found_modified_handler = False
+        found_update_counter_ref = False
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == '_on_text_modified':
+                found_modified_handler = True
+                # Check if this function references _update_counter (as call or attribute)
+                for child in ast.walk(node):
+                    # Direct call: self._update_counter()
+                    if isinstance(child, ast.Call):
+                        if isinstance(child.func, ast.Attribute) and child.func.attr == '_update_counter':
+                            found_update_counter_ref = True
+                    # As argument/reference: self.after(..., self._update_counter)
+                    elif isinstance(child, ast.Attribute) and child.attr == '_update_counter':
+                        found_update_counter_ref = True
+        
+        # Also check for Modified event binding
+        has_modified_binding = '<<Modified>>' in content
+        
+        if found_modified_handler and found_update_counter_ref and has_modified_binding:
+            print(f"✓ PASSED: Counter update properly bound to text modifications")
+            return True
+        else:
+            print(f"✗ FAILED: Missing proper counter update mechanism")
+            if not has_modified_binding:
+                print(f"  - Missing <<Modified>> event binding")
+            if not found_modified_handler:
+                print(f"  - Missing _on_text_modified handler")
+            if not found_update_counter_ref:
+                print(f"  - _on_text_modified doesn't reference _update_counter")
+            return False
+    except Exception as e:
+        print(f"✗ FAILED: Error analyzing code: {e}")
         return False
 
 
@@ -83,22 +110,31 @@ def test_set_filter_settings():
         if 'set_filter_settings' in methods:
             print(f"✓ PASSED: set_filter_settings method exists")
             
-            # Check if it sets the expected fields
+            # Use AST to verify that the method contains .set() calls on filter fields
             expected_fields = [
                 'filter_min_count', 'filter_min_words', 'filter_max_words',
                 'filter_include_regex', 'filter_exclude_regex',
                 'filter_exclude_substrings', 'filter_minus_words', 'filter_minus_mode'
             ]
             
-            missing_fields = []
-            for field in expected_fields:
-                if field not in content or f"{field}.set" not in content:
-                    missing_fields.append(field)
+            # Find the set_filter_settings method and check its body
+            found_fields = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == 'set_filter_settings':
+                    # Look for attribute access with .set() calls
+                    for child in ast.walk(node):
+                        if isinstance(child, ast.Call):
+                            if isinstance(child.func, ast.Attribute) and child.func.attr == 'set':
+                                if isinstance(child.func.value, ast.Attribute):
+                                    attr_name = child.func.value.attr
+                                    if attr_name in expected_fields:
+                                        found_fields.add(attr_name)
             
+            missing_fields = set(expected_fields) - found_fields
             if missing_fields:
-                print(f"  ⚠ WARNING: Some fields might be missing: {missing_fields}")
+                print(f"  ⚠ WARNING: Some fields might not have .set() calls: {missing_fields}")
             else:
-                print(f"  ✓ All expected filter fields are being set")
+                print(f"  ✓ All expected filter fields have .set() calls")
             
             return True
         else:
