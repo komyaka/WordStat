@@ -47,7 +47,9 @@ class WordStatApp:
             raise
         
         try:
-            cache_ttl = self.config.get('cache', {}).get('ttl_days', 7)
+            cache_ttl = int(self.config.get('cache', {}).get('ttl_days', 7))
+            cache_ttl = max(cache_ttl, 1)
+            self.cache_mode = self.config.get('cache', {}).get('mode', 'on')
             self.cache = WordstatCache(ttl_days=cache_ttl)
             logger.info("✓ WordstatCache инициализирован")
         except Exception as e:
@@ -92,7 +94,9 @@ class WordStatApp:
                 self.api_client,
                 self.rate_limiter,
                 self.keyword_filter,
-                num_workers=num_workers
+                num_workers=num_workers,
+                cache=self.cache,
+                cache_mode=self.cache_mode
             )
             logger.info("✓ ParsingEngine инициализирован")
         except Exception as e:
@@ -140,6 +144,7 @@ class WordStatApp:
         # ✅ УСТАНОВИТЬ CALLBACKS В PARSER
         self.parser.ui_callback = self._on_parser_update
         self.parser.autosave_callback = self._on_autosave
+        self.ui_dispatch = self.ui.post_to_ui
         
         self._load_config_to_ui()
         
@@ -189,6 +194,8 @@ class WordStatApp:
                 'max_rps': self.config.get('quotas', {}).get('max_rps', 10),
                 'max_hour': self.config.get('quotas', {}).get('max_per_hour', 10000),
                 'max_day': self.config.get('quotas', {}).get('max_per_day', 1000),
+                'cache_mode': self.config.get('cache', {}).get('mode', 'on'),
+                'cache_ttl_days': self.config.get('cache', {}).get('ttl_days', 7),
             }
             self.ui.set_settings(settings)
             
@@ -211,6 +218,8 @@ class WordStatApp:
             self.config['quotas']['max_rps'] = settings.get('max_rps', 10)
             self.config['quotas']['max_per_hour'] = settings.get('max_hour', 10000)
             self.config['quotas']['max_per_day'] = settings.get('max_day', 1000)
+            self.config['cache']['mode'] = settings.get('cache_mode', 'on')
+            self.config['cache']['ttl_days'] = settings.get('cache_ttl_days', 7)
             
             # Save filter settings
             filter_settings = self.ui.get_filter_settings()
@@ -227,6 +236,31 @@ class WordStatApp:
             logger.info("✓ Конфиг сохранён")
         except Exception as e:
             logger.error(f"✗ Ошибка сохранения конфига: {e}")
+
+    def _apply_cache_settings(self, settings: Dict) -> None:
+        """Применить настройки кэша к runtime"""
+        try:
+            cache_mode = (settings.get('cache_mode', 'on') or 'on').lower()
+            ttl_days = int(settings.get('cache_ttl_days', 7) or 7)
+            ttl_days = max(ttl_days, 1)
+
+            if cache_mode.lower() == 'off':
+                if getattr(self, 'cache', None):
+                    self.cache.shutdown()
+                self.cache = None
+            else:
+                should_recreate = not (getattr(self, 'cache', None) and getattr(self.cache, 'ttl_days', None) == ttl_days)
+                if should_recreate:
+                    if getattr(self, 'cache', None):
+                        self.cache.shutdown()
+                    self.cache = WordstatCache(ttl_days=ttl_days)
+
+            self.cache_mode = cache_mode
+            if hasattr(self.parser, 'set_cache_settings'):
+                self.parser.set_cache_settings(self.cache, cache_mode)
+            logger.info(f"✓ Настройки кэша применены (mode={cache_mode}, ttl={ttl_days})")
+        except Exception as e:
+            logger.error(f"✗ Ошибка применения настроек кэша: {e}")
     
     def _on_ui_start(self, seeds: str) -> None:
         """Callback: Запуск парсинга"""
@@ -261,6 +295,7 @@ class WordStatApp:
                 num_phrases=settings.get('num_phrases', 100),
                 geo_mode=GeoMode.OFF
             )
+            self._apply_cache_settings(settings)
             
             self.api_client.api_key = settings.get('api_key', '')
             self.api_client.folder_id = settings.get('folder_id', '')
@@ -280,7 +315,7 @@ class WordStatApp:
         """Обёртка для потока парсинга - отследить завершение"""
         try:
             logger.info("🚀 Парсинг начался в отдельном потоке")
-            self.ui.set_status("▶ Работает...")
+            self.ui_dispatch(self.ui.set_status, "▶ Работает...")
             
             self.parser.start()
             
@@ -290,13 +325,13 @@ class WordStatApp:
             time.sleep(0.5)
             if self.parser.state.keywords:
                 logger.info("🎯 Парсинг завершён, обновляю UI...")
-                self._on_ui_stop()
+                self.ui_dispatch(self._on_ui_stop)
             else:
-                self.ui.set_status("⚠ Нет результатов")
+                self.ui_dispatch(self.ui.set_status, "⚠ Нет результатов")
         
         except Exception as e:
             logger.error(f"✗ Ошибка в потоке парсинга: {e}")
-            self.ui.set_status(f"❌ Ошибка: {e}")
+            self.ui_dispatch(self.ui.set_status, f"❌ Ошибка: {e}")
     
     def _on_ui_pause(self) -> None:
         """Callback: Пауза"""
@@ -436,15 +471,18 @@ class WordStatApp:
             
             # ✅ ОТОБРАЗИТЬ РЕЗУЛЬТАТЫ
             if hasattr(self.ui, 'display_ai_results'):
-                self.ui.display_ai_results(results_text, stats_text)
+                self.ui_dispatch(self.ui.display_ai_results, results_text, stats_text)
             
-            self.ui.set_status(f"✓ AI анализ завершён: {len(clusters)} кластеров ({clustering_method})")
+            self.ui_dispatch(
+                self.ui.set_status,
+                f"✓ AI анализ завершён: {len(clusters)} кластеров ({clustering_method})"
+            )
             
             logger.info("✓ Результаты отображены в UI")
         
         except Exception as e:
             logger.error(f"✗ Ошибка в потоке AI: {e}")
-            self.ui.set_status(f"❌ Ошибка AI: {e}")
+            self.ui_dispatch(self.ui.set_status, f"❌ Ошибка AI: {e}")
             import traceback
             traceback.print_exc()
     
@@ -477,7 +515,7 @@ class WordStatApp:
     def _on_parser_update(self, stats: Dict) -> None:
         """Callback: Обновление статистики (периодический)"""
         try:
-            self.ui.update_stats(stats)
+            self.ui_dispatch(self.ui.update_stats, stats)
         except Exception as e:
             logger.debug(f"⚠ Ошибка обновления UI: {e}")
     
