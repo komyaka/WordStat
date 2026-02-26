@@ -53,20 +53,20 @@ def test_edge_cases():
     # ПРОБЛЕМА 5: README.md существует и содержит документацию
     print("\n✓ Тест 5: Документация AI кластеризации")
     readme_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'README.md')
-    if os.path.exists(readme_path):
+    if not os.path.exists(readme_path):
+        print("  ⚠ README.md не найден (пропускаем проверку документации)")
+    else:
         with open(readme_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            if '## 🤖 Режимы AI кластеризации' in content:
-                assert '### **auto**' in content
-                assert '### **semantic**' in content
-                assert '### **tfidf**' in content
-                assert '### **threshold**' in content
-                assert '### **fixed**' in content
-                print("  - README содержит документацию по всем 5 режимам")
-            else:
-                print("  ⚠ README без раздела про режимы AI кластеризации (пропускаем)")
-    else:
-        print("  ⚠ README.md не найден (пропускаем проверку документации)")
+        if '## 🤖 Режимы AI кластеризации' not in content:
+            print("  ⚠ README без раздела про режимы AI кластеризации (пропускаем)")
+        else:
+            assert '### **auto**' in content
+            assert '### **semantic**' in content
+            assert '### **tfidf**' in content
+            assert '### **threshold**' in content
+            assert '### **fixed**' in content
+            print("  - README содержит документацию по всем 5 режимам")
     
     print()
     print("=" * 80)

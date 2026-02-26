@@ -24,6 +24,12 @@ from nlp.geo_cleaner import GeoCleaner, GeoMode
 
 logger = get_logger('WordStat.Parser')
 
+CACHE_MODE_ON = "on"
+CACHE_MODE_ONLY = "only"
+CACHE_MODE_REFRESH = "refresh"
+CACHE_MODE_OFF = "off"
+CACHE_MODE_USABLE = (CACHE_MODE_ON, CACHE_MODE_ONLY, CACHE_MODE_REFRESH)
+
 
 class ParsingEngine:
     """Главный движок парсинга"""
@@ -295,12 +301,12 @@ class ParsingEngine:
             return None, None, str(e)
         
         try:
-            use_cache = self.cache and self.cache_mode in ("on", "only", "refresh")
+            use_cache = self.cache and self.cache_mode in CACHE_MODE_USABLE
             cached_payload = None
             if use_cache:
                 cached_payload = self.cache.get(task.phrase)
 
-            if cached_payload and self.cache_mode in ("on", "only"):
+            if cached_payload and self.cache_mode in (CACHE_MODE_ON, CACHE_MODE_ONLY):
                 cached_results = []
                 cached_assoc = []
                 if isinstance(cached_payload, dict):
@@ -313,7 +319,7 @@ class ParsingEngine:
                     self.cache_hits += 1
                     logger.info(f"📦 Cache hit for '{task.phrase}'")
                     return task, APIResponse(results=cached_results, associations=cached_assoc, status_code=200), None
-                if self.cache_mode == "only":
+                if self.cache_mode == CACHE_MODE_ONLY:
                     logger.info(f"📦 Cache-only mode, no data for '{task.phrase}'")
                     return task, APIResponse(results=[], associations=[], status_code=200), None
 
@@ -334,7 +340,7 @@ class ParsingEngine:
             
             logger.debug(f"✓ Ответ получен для '{task.phrase}'")
 
-            if self.cache and self.cache_mode in ("on", "refresh"):
+            if self.cache and self.cache_mode in (CACHE_MODE_ON, CACHE_MODE_REFRESH):
                 try:
                     self.cache.set(task.phrase, {
                         "results": response.results,

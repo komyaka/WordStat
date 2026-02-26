@@ -957,6 +957,6 @@ class MainWindow(ctk.CTk):
             if threading.current_thread() is threading.main_thread():
                 fn(*args, **kwargs)
             else:
-                self.after(0, lambda args=args, kwargs=kwargs: fn(*args, **kwargs))
+                self.after(0, lambda a=args, kw=kwargs: fn(*a, **kw))
         except Exception as e:
             logger.error(f"✗ Ошибка post_to_ui: {e}")
