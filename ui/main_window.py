@@ -82,6 +82,7 @@ def _safe_float(value, default, min_val=None, max_val=None):
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+EXPORT_MODES = ["seo", "ppc", "content"]
 
 class MainWindow(ctk.CTk):
     """Главное окно приложения"""
@@ -108,6 +109,7 @@ class MainWindow(ctk.CTk):
         
         self.status_label = None
         self.keywords_table = None
+        self.export_mode_var = ctk.StringVar(value="seo")
         
         self._create_ui()
         
@@ -221,6 +223,14 @@ class MainWindow(ctk.CTk):
             width=120
         )
         self.btn_export.pack(side='left', padx=5, pady=20)
+
+        self.export_mode_selector = ctk.CTkOptionMenu(
+            buttons_frame,
+            variable=self.export_mode_var,
+            values=EXPORT_MODES,
+            width=120
+        )
+        self.export_mode_selector.pack(side='left', padx=5, pady=20)
     
     def _create_tab_parsing(self):
         """Создать вкладку Парсинг"""
@@ -667,8 +677,12 @@ class MainWindow(ctk.CTk):
         logger.info("📊 Клик по кнопке Экспорт")
         if self.on_export_callback:
             try:
-                self.set_status("💾 Экспорт...")
-                self.on_export_callback('seo')
+                mode = self.export_mode_var.get() or "seo"
+                if mode not in set(EXPORT_MODES):
+                    logger.warning(f"⚠ Неверный режим экспорта '{mode}', использую seo")
+                    mode = "seo"
+                self.set_status(f"💾 Экспорт ({mode})...")
+                self.on_export_callback(mode)
                 self.set_status("✓ Экспорт завершён")
             except Exception as e:
                 logger.error(f"✗ Ошибка callback: {e}")
@@ -738,6 +752,7 @@ class MainWindow(ctk.CTk):
             self.found_label.set_value(str(stats.get('found', 0)))
             self.queue_label.set_value(str(stats.get('queue', 0)))
             self.requests_label.set_value(str(stats.get('requests_done', 0)))
+            self.cache_label.set_value(str(stats.get('cache_hits', 0)))
             
             elapsed = stats.get('elapsed_sec', 0)
             hours = int(elapsed // 3600)
@@ -842,6 +857,8 @@ class MainWindow(ctk.CTk):
                 'max_rps': _safe_int(self.settings_max_rps.get(), default=10, min_val=1, max_val=100),
                 'max_hour': _safe_int(self.settings_max_hour.get(), default=10000, min_val=1),
                 'max_day': _safe_int(self.settings_max_day.get(), default=1000, min_val=1),
+                'cache_mode': (self.settings_cache_mode.get() or 'on').strip(),
+                'cache_ttl_days': _safe_int(self.settings_cache_ttl.get(), default=7, min_val=1),
             }
         except Exception as e:
             logger.error(f"✗ Ошибка get_settings: {e}")
@@ -854,6 +871,8 @@ class MainWindow(ctk.CTk):
                 'max_rps': 10,
                 'max_hour': 10000,
                 'max_day': 1000,
+                'cache_mode': 'on',
+                'cache_ttl_days': 7,
             }
     
     def get_filter_settings(self) -> Dict:
@@ -925,7 +944,19 @@ class MainWindow(ctk.CTk):
             self.settings_max_rps.set(str(settings.get('max_rps', 10)))
             self.settings_max_hour.set(str(settings.get('max_hour', 10000)))
             self.settings_max_day.set(str(settings.get('max_day', 1000)))
+            self.settings_cache_mode.set(settings.get('cache_mode', 'on'))
+            self.settings_cache_ttl.set(str(settings.get('cache_ttl_days', 7)))
             
             logger.info("✓ Настройки установлены в UI")
         except Exception as e:
             logger.error(f"✗ Ошибка set_settings: {e}")
+
+    def post_to_ui(self, fn: Callable, *args, **kwargs):
+        """Безопасно выполнить fn в главном потоке Tk"""
+        try:
+            if threading.current_thread() is threading.main_thread():
+                fn(*args, **kwargs)
+            else:
+                self.after(0, lambda args=args, kwargs=kwargs: fn(*args, **kwargs))
+        except Exception as e:
+            logger.error(f"✗ Ошибка post_to_ui: {e}")

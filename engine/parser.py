@@ -32,7 +32,9 @@ class ParsingEngine:
                  api_client: WordstatClient,
                  rate_limiter: RateLimiter,
                  keyword_filter: KeywordFilter,
-                 num_workers: int = 3):
+                 num_workers: int = 3,
+                 cache=None,
+                 cache_mode: str = "on"):
         """Инициализация"""
         if not isinstance(api_client, WordstatClient):
             raise TypeError("api_client должен быть WordstatClient")
@@ -66,6 +68,9 @@ class ParsingEngine:
         
         self.running = False
         self.paused = False
+        self.cache = cache
+        self.cache_mode = (cache_mode or "on").lower()
+        self.cache_hits = 0
         
         self.ui_callback = None
         self.autosave_callback = None
@@ -100,6 +105,13 @@ class ParsingEngine:
             self.geo_cleaner = GeoCleaner()
         
         logger.info(f"📋 Параметры: depth={depth}, top_n={top_n}, phrases={num_phrases}")
+    
+    def set_cache_settings(self, cache, mode: str = "on") -> None:
+        """Установить настройки кэша"""
+        self.cache = cache
+        self.cache_mode = (mode or "on").lower()
+        self.cache_hits = 0
+        logger.info(f"🧠 Cache settings applied: mode={self.cache_mode}")
     
     def add_seeds(self, seeds_text: str) -> None:
         """Добавить семена"""
@@ -283,6 +295,28 @@ class ParsingEngine:
             return None, None, str(e)
         
         try:
+            use_cache = self.cache and self.cache_mode in ("on", "only", "refresh")
+            cached_payload = None
+            if use_cache:
+                cached_payload = self.cache.get(task.phrase)
+
+            if cached_payload and self.cache_mode in ("on", "only"):
+                cached_results = []
+                cached_assoc = []
+                if isinstance(cached_payload, dict):
+                    cached_results = cached_payload.get("results", []) or []
+                    cached_assoc = cached_payload.get("associations", []) or []
+                elif isinstance(cached_payload, list):
+                    cached_results = cached_payload
+
+                if cached_results or cached_assoc:
+                    self.cache_hits += 1
+                    logger.info(f"📦 Cache hit for '{task.phrase}'")
+                    return task, APIResponse(results=cached_results, associations=cached_assoc, status_code=200), None
+                if self.cache_mode == "only":
+                    logger.info(f"📦 Cache-only mode, no data for '{task.phrase}'")
+                    return task, APIResponse(results=[], associations=[], status_code=200), None
+
             allowed, msg = self.rate_limiter.acquire(timeout=60.0)
             if not allowed:
                 error_msg = f"Лимит: {msg}"
@@ -299,6 +333,16 @@ class ParsingEngine:
             )
             
             logger.debug(f"✓ Ответ получен для '{task.phrase}'")
+
+            if self.cache and self.cache_mode in ("on", "refresh"):
+                try:
+                    self.cache.set(task.phrase, {
+                        "results": response.results,
+                        "associations": response.associations,
+                    })
+                except Exception as e:
+                    logger.debug(f"⚠ Не удалось сохранить кэш для '{task.phrase}': {e}")
+
             return task, response, None
         
         except APIError as e:
@@ -405,6 +449,7 @@ class ParsingEngine:
                                 'queue': self.task_queue.qsize(),
                                 'requests_done': self.state.completed_requests,
                                 'elapsed_sec': now - self.state.session_start,
+                                'cache_hits': self.cache_hits,
                             }
                         self.ui_callback(stats)
                     except Exception as e:
