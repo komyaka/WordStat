@@ -1,154 +1,105 @@
-# SEO Wordstat Master AI v.2026
+## Русская версия
 
-Профессиональное десктопное приложение для сбора, анализа и кластеризации семантики из Yandex Cloud Search API Wordstat.
-
-## 🎯 Возможности
-
-✅ **Сбор семантики**
-- Рекурсивный парсинг (depth 1-3, top-N ширина)
-- Поддержка Wordstat API v2
-- Антидубли на всех уровнях
-- Глобальный RPS контроль + quotas
-
-✅ **Фильтрация & NLP**
-- Лемматизированные минус-слова (pymorphy3)
-- 3 режима гео-очистки (OFF/TAG/SPLIT/EXCLUDE)
-- Regex фильтры (include/exclude)
-- Диапазоны по количеству слов
-
-✅ **AI Анализ**
-- TF-IDF векторизация с n-граммами
-- AgglomerativeClustering (threshold & fixed режимы)
-- Auto-naming кластеров
-- Intent tagging (Commercial/Info/Navigational/General)
-
-✅ **Сохранение & Экспорт**
-- SQLite кэш с TTL & целостностью (SHA256)
-- JSON checkpoint для resume
-- TSV с результатами
-- Excel экспорт (3 режима: SEO/PPC/Content)
-
-✅ **UI & UX**
-- customtkinter интерфейс (тёмная/светлая тема)
-- Полная мультиязычность (русский)
-- Clipboard поддержка (Ctrl+C/V/X/A + контекстное меню)
-- Real-time статистика & live log
-
-## 📥 Установка
-
-### Требования
-- Python 3.10+
-- Yandex Cloud API Key & Folder ID
-
-### Шаги
-
-```bash
-# Клонировать репозиторий
-git clone https://github.com/komyaka/WordStat.git
-cd WordStat
-
-# Создать виртуальное окружение
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate  # Windows
-
-# Установить зависимости
-pip install -r requirements.txt
-
-# Запустить приложение
-python main.py
-```
-
-## 🤖 Режимы AI кластеризации
-
-Приложение поддерживает 5 режимов кластеризации ключевых слов, доступных на вкладке **"AI Анализ"**:
-
-### **auto** — Автоматический выбор (рекомендуется)
-Автоматически выбирает лучший доступный метод на основе установленных зависимостей:
-- Если доступен `sentence-transformers` — использует **semantic** режим (семантические эмбеддинги + HDBSCAN)
-- Иначе использует **tfidf** режим (TF-IDF + Agglomerative Clustering)
-
-Это режим по умолчанию, оптимальный для большинства задач.
-
-### **semantic** — Семантическая кластеризация
-Использует многоязычные трансформерные эмбеддинги для определения семантической близости ключевых слов:
-- Модель: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
-- Метод кластеризации: HDBSCAN (автоматически определяет количество кластеров)
-- **Требования**: `pip install sentence-transformers`
-- **Преимущества**: Понимает смысл фраз, группирует синонимы и близкие по смыслу запросы
-- **Недостатки**: Требует больше ресурсов и времени
-
-Если пакет не установлен, автоматически переключается на **tfidf** режим.
-
-### **tfidf** — Лексическая кластеризация
-Использует TF-IDF векторизацию с n-граммами для оценки лексической похожести:
-- Метод: TF-IDF с n-граммами (1-3)
-- Кластеризация: Agglomerative Clustering с косинусным расстоянием
-- **Требования**: Только `scikit-learn` (входит в базовые зависимости)
-- **Преимущества**: Быстрый, не требует дополнительных пакетов
-- **Недостатки**: Не понимает семантику, группирует по совпадению слов
-
-Всегда доступен, используется как fallback для других режимов.
-
-### **threshold** — Кластеризация по порогу похожести
-Группирует ключевые слова на основе порога косинусной схожести (0.0 — 1.0):
-- Ключевые слова с похожестью выше порога попадают в один кластер
-- **Параметр**: "Порог схожести" (0.0 — 1.0, по умолчанию 0.5)
-  - 0.3-0.4 — слабая связь, больше кластеров
-  - 0.5-0.6 — средняя связь (рекомендуется)
-  - 0.7-0.9 — сильная связь, меньше кластеров
-- Количество кластеров определяется автоматически на основе порога
-
-### **fixed** — Фиксированное количество кластеров
-Создаёт заданное количество кластеров с помощью Agglomerative Clustering:
-- **Параметр**: "Количество кластеров" (по умолчанию 10)
-- Гарантирует ровно N кластеров (полезно для структурированного экспорта)
-- Использует иерархическую кластеризацию с автоматическим подбором порога
-
-Подходит, когда нужно определённое количество групп для контент-плана или структуры сайта.
+Этот README переведён на русский язык. Если есть расхождения, приоритет у логики в `.github/copilot-instructions.md` и профилях агентов.
 
 ---
 
-### Параметры кластеризации
+# Agent — 10-Agent AI Coding System
 
-- **Лемматизация**: Приведение слов к начальной форме (требует `pymorphy3`)
-- **Max features**: Максимальное количество признаков для TF-IDF (по умолчанию 1000)
-- **Порог схожести**: Используется в режимах `threshold` и `tfidf` (0.0-1.0)
-- **Количество кластеров**: Используется в режиме `fixed` (целое число ≥ 2)
+A production-ready multi-agent system for GitHub Copilot that writes, fixes, refactors, and reviews code across all programming languages and project types (web, desktop, embedded, industrial software).
 
-## 📖 Использование
+---
 
-1. Укажите API ключ и Folder ID в настройках
-2. Введите начальные ключевые слова на вкладке "Парсинг"
-3. Настройте глубину, фильтры и минус-слова
-4. Запустите сбор кнопкой "▶ Парсить"
-5. Проанализируйте результаты на вкладке "AI Анализ"
-6. Экспортируйте данные в Excel (SEO/PPC/Content)
+## Quick Start
 
-## 🔧 Архитектура
+Copy the template from [`prompt.md`](./prompt.md), fill in your task, and hand it to the **Orchestrator** agent in GitHub Copilot Chat.
 
+---
+
+## Architecture
+
+All agents live in [`.github/agents/`](./.github/agents/). The single source of rules is [`.github/copilot-instructions.md`](./.github/copilot-instructions.md). The single source of task truth is [`STATUS.md`](./STATUS.md).
+
+### The 10 Агенты
+
+| # | Agent | Role | Write-Zone |
+|---|---|---|---|
+| 1 | **orchestrator** | Master coordinator; manages phases, gates, REDO cycles | `STATUS.md` (coordination sections) |
+| 2 | **issue-analyst** | Debug detective; reproduces bugs and identifies root cause before any fix | `STATUS.md` (REPRO, ROOT CAUSE) |
+| 3 | **architect** | Scope & design authority; sets boundaries, interfaces, and acceptance criteria | `STATUS.md` (SCOPE, DESIGN) |
+| 4 | **coder** | Implements features, fixes, and refactors per approved design | Source code + tests in scope |
+| 5 | **refactor** | Safe structural improvements without behaviour change | Source code in scope |
+| 6 | **qa** | Independent test plan and regression coverage | `STATUS.md` (TEST PLAN) + test files (if authorised) |
+| 7 | **security** | Threat model, input validation, auth/authz, secrets, dependencies | `STATUS.md` (SECURITY REVIEW) |
+| 8 | **performance** | Complexity, hot paths, memory/latency analysis | `STATUS.md` (PERF REVIEW) |
+| 9 | **dx-ci** | Build, CI pipelines, linters, formatters, tooling | CI/build config files |
+| 10 | **docs** | README, API docs, changelog, migration notes, run steps | Documentation files |
+| + | **auditor** | Final independent verification; always the last agent | `STATUS.md` (AUDIT) |
+
+> **Note:** Auditor is always active as the final gate — it is logically the 11th participant but always present.
+
+---
+
+## Workflow Patterns
+
+### Fast-path (small change, ≤2 files)
 ```
-WordStat/
-├── api/              # API клиент Yandex Wordstat
-├── engine/           # Парсер, rate limiter, worker
-├── nlp/              # Нормализация, лемматизация, гео-очистка
-├── filters/          # Фильтрация ключевых слов
-├── ai/               # AI кластеризация и intent analysis
-├── storage/          # Кэш, state manager, config, экспорт
-├── ui/               # GUI (customtkinter)
-└── utils/            # Logger, константы, verification
+Orchestrator → Coder → Auditor
 ```
 
-## 📝 Лицензия
 
-MIT License — свободное использование в коммерческих и некоммерческих проектах.
+### Bug-path (crash / regression / unclear root cause)
+```
+Orchestrator → Issue Analyst → Coder → [QA] → Auditor
+```
 
-## 🤝 Вклад в проект
 
-Pull requests приветствуются! Для крупных изменений сначала откройте issue для обсуждения.
+### Feature-path (new functionality)
+```
+Orchestrator → Architect → Coder → QA → [Docs] → Auditor
+```
 
-## 📧 Контакты
 
-- **GitHub**: https://github.com/komyaka/WordStat
-- **Issues**: https://github.com/komyaka/WordStat/issues
+### Modernization-path (refactor / cleanup)
+```
+Orchestrator → Architect → Refactor → QA → Auditor
+```
+
+
+Add `Security`, `Performance`, or `DX-CI` to any path when their triggers apply.
+
+---
+
+## Key Design Decisions
+
+### Fix: Subagents Not Picking Up Instructions
+
+Every `task()` call from Orchestrator **must** include the full `## GUARDRAILS` block (verbatim content of `.github/copilot-instructions.md`). Every subagent validates this on receipt and returns `STATUS: REDO` if it is missing.
+
+### Single Source of Truth
+
+`STATUS.md` is the canonical coordination artifact. Every agent writes only to its designated sections.
+
+### No Parallel Агенты
+
+Агенты execute sequentially. No two agents modify the same file category at the same time.
+
+---
+
+## Supported Languages & Stacks
+
+Python · JavaScript/TypeScript · Go · Rust · C# · Java · PHP · Ruby · C/C++ · and more.
+
+See the [Command Matrix](./.github/copilot-instructions.md) for fallback build/test/lint commands per language.
+
+---
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `.github/copilot-instructions.md` | GUARDRAILS — universal rules for all agents |
+| `.github/agents/*.agent.md` | Agent profiles (role, write-zone, checklist) |
+| `STATUS.md` | Task state — единственный источник истины |
+| `prompt.md` | Universal task prompt template |
+| `chatgpt_agent/` | Reference профили агентов for ChatGPT / non-Copilot environments |
