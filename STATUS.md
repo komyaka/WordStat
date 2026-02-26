@@ -290,20 +290,24 @@ DETAILS: Not triggered; no CI/config changes required.
 
 ## DOCS
 
-_[Filled by Docs agent if triggered]_
-
 ### Changes Made
 | File | Change | Description |
 |---|---|---|
-| | | |
+| README.md | rewritten | Complete rewrite from multi-agent system docs to Russian user-facing manual for SEO Wordstat Master AI v.2026 |
+
+### Public Interface Changes Documented
+- [x] All new/changed CLI flags documented in README.
+- [x] All new/changed env variables added to `.env.example` (N/A — program uses config.json, not env vars).
+- [x] All breaking changes have a migration guide (N/A — no breaking changes).
+- [x] CHANGELOG entry added (N/A — no CHANGELOG.md exists in the project).
 
 ### Docs Status
 ```
 STATUS: VERIFIED
 AGENT: docs
 PHASE: documentation
-TIMESTAMP: 2026-02-26T13:25:00Z
-DETAILS: Not triggered; no doc updates requested beyond tests.
+TIMESTAMP: 2025-07-18T12:30:00Z
+DETAILS: README.md fully rewritten in Russian; covers program description, principle of operation, installation, configuration (API key + folder ID), UI guide, outputs, full config.json reference, and FAQ.
 ```
 
 ---

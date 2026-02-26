@@ -50,6 +50,11 @@ coverage.xml
 *.tmp
 verification_results.json
 
+# Config with API keys
+config.json
+config.json.backup
+config.json.tmp
+
 # OS files
 .DS_Store
 Thumbs.db

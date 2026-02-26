@@ -1,105 +1,354 @@
-## Русская версия
+# SEO Wordstat Master AI v.2026
 
-Этот README переведён на русский язык. Если есть расхождения, приоритет у логики в `.github/copilot-instructions.md` и профилях агентов.
-
----
-
-# Agent — 10-Agent AI Coding System
-
-A production-ready multi-agent system for GitHub Copilot that writes, fixes, refactors, and reviews code across all programming languages and project types (web, desktop, embedded, industrial software).
+Десктопное приложение для сбора семантического ядра через **Yandex Cloud Search API Wordstat v2** с AI-кластеризацией ключевых слов.
 
 ---
 
-## Quick Start
+## Содержание
 
-Copy the template from [`prompt.md`](./prompt.md), fill in your task, and hand it to the **Orchestrator** agent in GitHub Copilot Chat.
-
----
-
-## Architecture
-
-All agents live in [`.github/agents/`](./.github/agents/). The single source of rules is [`.github/copilot-instructions.md`](./.github/copilot-instructions.md). The single source of task truth is [`STATUS.md`](./STATUS.md).
-
-### The 10 Агенты
-
-| # | Agent | Role | Write-Zone |
-|---|---|---|---|
-| 1 | **orchestrator** | Master coordinator; manages phases, gates, REDO cycles | `STATUS.md` (coordination sections) |
-| 2 | **issue-analyst** | Debug detective; reproduces bugs and identifies root cause before any fix | `STATUS.md` (REPRO, ROOT CAUSE) |
-| 3 | **architect** | Scope & design authority; sets boundaries, interfaces, and acceptance criteria | `STATUS.md` (SCOPE, DESIGN) |
-| 4 | **coder** | Implements features, fixes, and refactors per approved design | Source code + tests in scope |
-| 5 | **refactor** | Safe structural improvements without behaviour change | Source code in scope |
-| 6 | **qa** | Independent test plan and regression coverage | `STATUS.md` (TEST PLAN) + test files (if authorised) |
-| 7 | **security** | Threat model, input validation, auth/authz, secrets, dependencies | `STATUS.md` (SECURITY REVIEW) |
-| 8 | **performance** | Complexity, hot paths, memory/latency analysis | `STATUS.md` (PERF REVIEW) |
-| 9 | **dx-ci** | Build, CI pipelines, linters, formatters, tooling | CI/build config files |
-| 10 | **docs** | README, API docs, changelog, migration notes, run steps | Documentation files |
-| + | **auditor** | Final independent verification; always the last agent | `STATUS.md` (AUDIT) |
-
-> **Note:** Auditor is always active as the final gate — it is logically the 11th participant but always present.
+- [Что это за программа](#что-это-за-программа)
+- [Принцип работы](#принцип-работы)
+- [Установка](#установка)
+- [Настройка](#настройка)
+- [Запуск](#запуск)
+- [Интерфейс программы](#интерфейс-программы)
+- [Результаты работы](#результаты-работы)
+- [Конфигурация config.json](#конфигурация-configjson)
+- [Часто задаваемые вопросы](#часто-задаваемые-вопросы)
 
 ---
 
-## Workflow Patterns
+## Что это за программа
 
-### Fast-path (small change, ≤2 files)
-```
-Orchestrator → Coder → Auditor
-```
+**SEO Wordstat Master AI** — это инструмент для SEO-специалистов и маркетологов, который:
 
-
-### Bug-path (crash / regression / unclear root cause)
-```
-Orchestrator → Issue Analyst → Coder → [QA] → Auditor
-```
-
-
-### Feature-path (new functionality)
-```
-Orchestrator → Architect → Coder → QA → [Docs] → Auditor
-```
-
-
-### Modernization-path (refactor / cleanup)
-```
-Orchestrator → Architect → Refactor → QA → Auditor
-```
-
-
-Add `Security`, `Performance`, or `DX-CI` to any path when their triggers apply.
+- Собирает ключевые слова и их частотность из **Яндекс Вордстат** через официальный API.
+- Выполняет **рекурсивный парсинг** — автоматически углубляется в подзапросы, собирая максимально полное семантическое ядро.
+- Фильтрует результаты по частотности, количеству слов, минус-словам и регулярным выражениям.
+- Проводит **AI-кластеризацию** собранных ключевых слов с помощью нейросетевых моделей (sentence-transformers) и алгоритмов машинного обучения (KMeans, Agglomerative Clustering, HDBSCAN).
+- Экспортирует готовые результаты в **Excel-файлы**: SEO-ядро, PPC-контекст, контент-план, AI-кластеры.
 
 ---
 
-## Key Design Decisions
+## Принцип работы
 
-### Fix: Subagents Not Picking Up Instructions
+```
+┌──────────────────┐
+│  Пользователь    │
+│  вводит ключевые │
+│  слова (seeds)   │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐     ┌──────────────────┐
+│  ParsingEngine   │────▶│  Yandex Cloud    │
+│  (рекурсивный    │◀────│  Wordstat API    │
+│   сбор данных)   │     └──────────────────┘
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  KeywordFilter   │  Фильтрация по частотности,
+│  (фильтрация)    │  словам, regex, минус-словам
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  SemanticAnalyzer│  AI-кластеризация
+│  (кластеризация) │  (sentence-transformers + sklearn)
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  ExcelExporter   │  Экспорт в .xlsx
+│  (экспорт)       │
+└──────────────────┘
+```
 
-Every `task()` call from Orchestrator **must** include the full `## GUARDRAILS` block (verbatim content of `.github/copilot-instructions.md`). Every subagent validates this on receipt and returns `STATUS: REDO` if it is missing.
+### Поэтапно:
 
-### Single Source of Truth
+1. **Ввод seed-запросов.** Вы вводите одно или несколько базовых ключевых слов (например, «купить кроссовки»).
 
-`STATUS.md` is the canonical coordination artifact. Every agent writes only to its designated sections.
+2. **Рекурсивный парсинг.** Программа отправляет запросы к Yandex Wordstat API и получает список связанных ключевых фраз с их частотностью. Для каждой найденной фразы (в зависимости от настроек глубины и top_n) выполняется повторный запрос — так собирается обширное семантическое ядро.
 
-### No Parallel Агенты
+3. **Фильтрация.** Собранные ключевые слова проходят через фильтры: минимальная частотность, диапазон количества слов в фразе, минус-слова, регулярные выражения.
 
-Агенты execute sequentially. No two agents modify the same file category at the same time.
+4. **Кэширование.** Результаты запросов сохраняются в локальный кэш (SQLite), чтобы при повторных запросах не тратить лимиты API.
+
+5. **AI-кластеризация.** Собранные ключевые слова группируются в семантические кластеры. Программа использует нейросетевые эмбеддинги (sentence-transformers) и алгоритмы кластеризации (KMeans, Agglomerative, HDBSCAN) для автоматического объединения похожих по смыслу запросов.
+
+6. **Экспорт.** Результаты экспортируются в форматированные Excel-файлы для дальнейшей работы.
 
 ---
 
-## Supported Languages & Stacks
+## Установка
 
-Python · JavaScript/TypeScript · Go · Rust · C# · Java · PHP · Ruby · C/C++ · and more.
+### Системные требования
 
-See the [Command Matrix](./.github/copilot-instructions.md) for fallback build/test/lint commands per language.
+- **Python** 3.10 или выше
+- **ОС:** Windows, macOS, Linux
+- **Оперативная память:** минимум 4 ГБ (рекомендуется 8 ГБ для AI-кластеризации)
 
----
+### Шаг 1. Клонируйте репозиторий
 
-## Files
+```bash
+git clone https://github.com/<owner>/WordStat.git
+cd WordStat
+```
 
-| File | Purpose |
+### Шаг 2. Создайте виртуальное окружение (рекомендуется)
+
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+```
+
+### Шаг 3. Установите зависимости
+
+```bash
+pip install -r requirements.txt
+```
+
+#### Список зависимостей
+
+| Пакет | Назначение |
 |---|---|
-| `.github/copilot-instructions.md` | GUARDRAILS — universal rules for all agents |
-| `.github/agents/*.agent.md` | Agent profiles (role, write-zone, checklist) |
-| `STATUS.md` | Task state — единственный источник истины |
-| `prompt.md` | Universal task prompt template |
-| `chatgpt_agent/` | Reference профили агентов for ChatGPT / non-Copilot environments |
+| `customtkinter` | Графический интерфейс (GUI) |
+| `requests` | HTTP-запросы к API |
+| `pandas` | Обработка данных |
+| `numpy` | Числовые вычисления |
+| `scikit-learn` | Алгоритмы кластеризации (KMeans, Agglomerative) |
+| `pymorphy3` | Лемматизация русских слов |
+| `openpyxl` | Экспорт в Excel |
+| `Pillow` | Работа с изображениями в UI |
+| `psutil` | Мониторинг системных ресурсов |
+| `sentence-transformers` | Нейросетевые эмбеддинги для семантического анализа |
+| `hdbscan` | Алгоритм плотностной кластеризации |
+
+---
+
+## Настройка
+
+Для работы программы вам необходимы **два обязательных параметра** от Яндекс Облака:
+
+### Получение API-ключа и Folder ID
+
+1. Зарегистрируйтесь или войдите в [Yandex Cloud Console](https://console.yandex.cloud/).
+2. Создайте **каталог** (folder) — его идентификатор (`folder_id`) понадобится для настройки.
+3. Создайте **сервисный аккаунт** и выдайте ему роль на доступ к API поиска.
+4. Создайте **API-ключ** для этого сервисного аккаунта.
+
+### Где указать ключи
+
+Есть два способа:
+
+#### Способ 1. Через интерфейс программы (рекомендуется)
+
+После запуска программы на панели **«Настройки»** заполните поля:
+
+- **API Key** — ваш API-ключ Yandex Cloud
+- **Folder ID** — идентификатор каталога Yandex Cloud
+
+Настройки автоматически сохраняются в `config.json` при запуске парсинга.
+
+#### Способ 2. Через файл `config.json`
+
+Создайте (или отредактируйте) файл `config.json` в корне проекта:
+
+```json
+{
+  "api": {
+    "key": "ВАШ_API_КЛЮЧ",
+    "folder_id": "ВАШ_FOLDER_ID"
+  }
+}
+```
+
+> ⚠️ **Важно:** Не публикуйте файл `config.json` с вашими ключами в открытых репозиториях. Он уже добавлен в `.gitignore`.
+
+---
+
+## Запуск
+
+```bash
+python main.py
+```
+
+После запуска откроется окно графического интерфейса программы.
+
+---
+
+## Интерфейс программы
+
+### Панель настроек
+
+| Параметр | Описание | Значение по умолчанию |
+|---|---|---|
+| **API Key** | API-ключ Yandex Cloud | — (обязательно) |
+| **Folder ID** | ID каталога в Yandex Cloud | — (обязательно) |
+| **Глубина парсинга** | Уровень рекурсии при сборе ключей | `2` |
+| **Top N фраз** | Количество топ-фраз, по которым идёт рекурсия | `3` |
+| **Фраз за запрос** | Количество фраз, получаемых за один запрос к API | `100` |
+| **Макс. RPS** | Максимум запросов в секунду | `10` |
+| **Макс. в час** | Максимум запросов в час | `10 000` |
+| **Макс. в день** | Максимум запросов в день | `100 000` |
+| **Кэш** | Режим кэширования (`on` / `off`) | `on` |
+| **TTL кэша** | Срок хранения кэша в днях | `7` |
+
+### Панель фильтров
+
+| Параметр | Описание | Значение по умолчанию |
+|---|---|---|
+| **Мин. частотность** | Минимальное число показов для включения фразы | `10` |
+| **Мин. слов** | Минимальное количество слов в фразе | `1` |
+| **Макс. слов** | Максимальное количество слов в фразе | `10` |
+| **Include Regex** | Регулярное выражение — включать только совпадающие фразы | — |
+| **Exclude Regex** | Регулярное выражение — исключать совпадающие фразы | — |
+| **Минус-слова** | Список слов для исключения фраз, содержащих эти слова | — |
+
+### Управление парсингом
+
+- **Старт** — запустить сбор семантического ядра
+- **Пауза** — приостановить парсинг
+- **Продолжить** — возобновить парсинг после паузы
+- **Стоп** — остановить парсинг и отобразить текущие результаты
+
+### AI-кластеризация
+
+После завершения парсинга вы можете запустить AI-анализ собранных ключевых слов:
+
+- **Порог схожести** — минимальный уровень семантической близости для объединения в кластер (по умолчанию `0.5`)
+- **Количество кластеров** — целевое число кластеров (по умолчанию `10`)
+- **Режим кластеризации** — метод группировки (`threshold` / `kmeans` / `agglomerative` / `hdbscan`)
+- **Анализировать** — запустить кластеризацию
+- **Экспорт AI** — сохранить результаты кластеризации в Excel
+
+---
+
+## Результаты работы
+
+Программа создаёт следующие файлы в корневой директории проекта:
+
+### Экспортируемые Excel-файлы
+
+| Файл | Содержание |
+|---|---|
+| `output_seo_core.xlsx` | **SEO-ядро** — полный список собранных ключевых слов с частотностью, отсортированный по релевантности |
+| `output_ppc_context.xlsx` | **PPC-контекст** — ключевые слова, подготовленные для настройки контекстной рекламы |
+| `output_content_plan.xlsx` | **Контент-план** — ключевые слова, сгруппированные для планирования контента |
+| `output_ai_clusters.xlsx` | **AI-кластеры** — результаты семантической кластеризации с разбивкой по группам |
+
+### Автосохранение
+
+Во время работы программа автоматически сохраняет текущее состояние:
+
+- **JSON-файл** — полное состояние парсинга (для возможности восстановления)
+- **TSV-файл** — текущие результаты в текстовом формате
+
+---
+
+## Конфигурация config.json
+
+Полная структура файла конфигурации с описанием всех параметров:
+
+```json
+{
+  "api": {
+    "key": "",
+    "folder_id": "",
+    "endpoint": "wordstat",
+    "timeout": 15,
+    "retries": 3
+  },
+  "parsing": {
+    "depth": 2,
+    "top_n": 3,
+    "num_phrases": 100,
+    "regions": null,
+    "device": "all",
+    "workers": 3
+  },
+  "quotas": {
+    "max_rps": 10,
+    "max_per_hour": 10000,
+    "max_per_day": 100000
+  },
+  "filters": {
+    "min_count": 10,
+    "min_words": 1,
+    "max_words": 10,
+    "include_regex": "",
+    "exclude_regex": "",
+    "exclude_substrings": "",
+    "minus_words": "",
+    "minus_word_mode": "any"
+  },
+  "ai": {
+    "lemmatize": true,
+    "threshold": 0.5,
+    "n_clusters": 10,
+    "max_features": 1000,
+    "ngram_range": [1, 2],
+    "embedding_model": "multilingual",
+    "use_semantic": true
+  },
+  "cache": {
+    "enabled": true,
+    "mode": "on",
+    "ttl_days": 7
+  },
+  "ui": {
+    "theme": "dark",
+    "autosave_interval": 5
+  }
+}
+```
+
+### Описание секций
+
+| Секция | Описание |
+|---|---|
+| `api` | Настройки подключения к Yandex Cloud API. `key` и `folder_id` — обязательные поля. |
+| `parsing` | Параметры парсинга: глубина рекурсии, количество фраз, число рабочих потоков. |
+| `quotas` | Лимиты запросов к API для соблюдения квот Яндекса. |
+| `filters` | Фильтрация ключевых слов: частотность, длина фразы, regex, минус-слова. |
+| `ai` | Настройки AI-кластеризации: лемматизация, порог схожести, модель эмбеддингов. |
+| `cache` | Управление кэшированием результатов запросов. |
+| `ui` | Параметры интерфейса: тема оформления, интервал автосохранения (в минутах). |
+
+---
+
+## Часто задаваемые вопросы
+
+### Где получить API-ключ?
+
+В [Yandex Cloud Console](https://console.yandex.cloud/) → создайте сервисный аккаунт → создайте API-ключ.
+
+### Программа показывает «API Key или Folder ID не установлены»
+
+Убедитесь, что вы заполнили оба поля — **API Key** и **Folder ID** — в настройках программы или в файле `config.json`.
+
+### Как увеличить количество собираемых ключевых слов?
+
+- Увеличьте **глубину парсинга** (`depth`) — программа будет глубже рекурсивно обходить подзапросы.
+- Увеличьте **Top N** (`top_n`) — программа будет брать больше фраз на каждом уровне рекурсии.
+- Увеличьте **Фраз за запрос** (`num_phrases`) — программа будет получать больше фраз за один запрос.
+
+### Кэш занимает много места. Как его очистить?
+
+Удалите файл кэша (SQLite-база данных) из директории проекта или отключите кэш, установив `cache.mode` в `"off"` в `config.json`.
+
+### AI-кластеризация работает медленно
+
+При первом запуске программа скачивает модель sentence-transformers (около 400 МБ). Последующие запуски будут значительно быстрее. Для ускорения можно отключить семантический анализ (`ai.use_semantic: false`) — тогда будет использоваться TF-IDF вместо нейросетевых эмбеддингов.
+
+---
+
+## Лицензия
+
+Подробности смотрите в файле лицензии в репозитории.
