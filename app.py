@@ -147,7 +147,10 @@ class WordStatApp:
         self.ui_dispatch = self.ui.post_to_ui
         
         self._load_config_to_ui()
-        
+
+        # ✅ СОХРАНИТЬ КОНФИГ ПРИ ЗАКРЫТИИ ОКНА
+        self.ui.protocol("WM_DELETE_WINDOW", self._on_window_close)
+
         logger.info("✓ WordStatApp полностью инициализирована")
     
     def _apply_filter_settings(self) -> None:
@@ -538,6 +541,21 @@ class WordStatApp:
             import traceback
             traceback.print_exc()
     
+    def _on_window_close(self) -> None:
+        """Обработчик закрытия окна — сохранить конфиг и завершить"""
+        logger.info("🚪 Закрытие окна...")
+        try:
+            self._save_config_from_ui()
+            logger.info("✓ Конфиг сохранён при закрытии")
+        except Exception as e:
+            logger.error(f"✗ Ошибка сохранения конфига при закрытии: {e}")
+        try:
+            self.ui.destroy()
+        except Exception as e:
+            logger.error(f"✗ Ошибка destroy: {e}")
+            import sys
+            sys.exit(0)
+
     def run(self) -> None:
         """Запустить приложение"""
         try:

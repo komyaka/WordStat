@@ -59,7 +59,49 @@ class LabeledEntry(ctk.CTkFrame):
             logger.error(f"✗ Ошибка set(): {e}")
 
 
-class LabeledTextbox(ctk.CTkFrame):
+class LabeledComboBox(ctk.CTkFrame):
+    """ComboBox (выпадающий список) с меткой слева"""
+
+    def __init__(self, parent, label_text: str, values: list, default: str = "", **kwargs):
+        super().__init__(parent, **kwargs)
+
+        try:
+            self.label = ctk.CTkLabel(
+                self,
+                text=label_text,
+                font=UIConfig.FONT_NORMAL,
+                width=150
+            )
+            self.label.pack(side='left', padx=(0, UIConfig.PADDING_SMALL))
+
+            self._var = ctk.StringVar(value=default or (values[0] if values else ""))
+            self.combobox = ctk.CTkComboBox(
+                self,
+                values=values,
+                variable=self._var,
+                font=UIConfig.FONT_NORMAL,
+                state="readonly"
+            )
+            self.combobox.pack(side='left', fill='x', expand=True)
+        except Exception as e:
+            logger.error(f"✗ Ошибка инициализации LabeledComboBox: {e}")
+
+    def get(self) -> str:
+        """Получить выбранное значение"""
+        try:
+            return self._var.get()
+        except Exception as e:
+            logger.error(f"✗ Ошибка get(): {e}")
+            return ""
+
+    def set(self, value: str):
+        """Установить значение"""
+        try:
+            self._var.set(value)
+        except Exception as e:
+            logger.error(f"✗ Ошибка set(): {e}")
+
+
     """Textbox с меткой и счётчиком строк"""
     
     def __init__(self, parent, label_text: str, height: int = 150, **kwargs):
