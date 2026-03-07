@@ -51,7 +51,17 @@ class ClipboardHandler:
         except Exception as e:
             logger.error(f"✗ Ошибка setup_keybindings: {e}")
     
-    def _show_context_menu(self, event):
+    def _is_entry_widget(self) -> bool:
+        """Проверить, является ли виджет CTkEntry (имеет _entry, но не _textbox)"""
+        return hasattr(self.widget, '_entry') and not hasattr(self.widget, '_textbox')
+
+    def _get_inner_widget(self):
+        """Получить внутренний tk-виджет (tk.Entry или tk.Text)"""
+        if self._is_entry_widget():
+            return self.widget._entry
+        return self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
+
+
         """Показать контекстное меню"""
         try:
             self.context_menu.post(event.x_root, event.y_root)
@@ -122,25 +132,32 @@ class ClipboardHandler:
         """Копировать текст"""
         try:
             text = None
-            # Попробовать получить выделенный текст через selection_get
-            try:
-                text = self.widget.selection_get()
-            except (tk.TclError, AttributeError):
-                pass
-            
-            # Fallback для CTkTextbox: использовать tag_ranges и внутренний виджет
-            if text is None:
+
+            if self._is_entry_widget():
+                # CTkEntry: использовать внутренний tk.Entry
+                entry = self.widget._entry
                 try:
-                    # Для CTkTextbox получить внутренний tk.Text виджет
-                    textbox = self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
-                    # Получить индексы выделения
-                    sel_ranges = textbox.tag_ranges("sel")
-                    if sel_ranges:
-                        sel_start, sel_end = sel_ranges[0], sel_ranges[1]
-                        text = textbox.get(sel_start, sel_end)
+                    if entry.selection_present():
+                        text = entry.selection_get()
                 except (tk.TclError, AttributeError):
                     pass
-            
+            else:
+                # CTkTextbox: использовать внутренний tk.Text
+                textbox = self._get_inner_widget()
+                try:
+                    sel_ranges = textbox.tag_ranges("sel")
+                    if sel_ranges:
+                        text = textbox.get(sel_ranges[0], sel_ranges[1])
+                except (tk.TclError, AttributeError):
+                    pass
+
+                # Fallback через selection_get
+                if text is None:
+                    try:
+                        text = self.widget.selection_get()
+                    except (tk.TclError, AttributeError):
+                        pass
+
             if text:
                 self.widget.clipboard_clear()
                 self.widget.clipboard_append(text)
@@ -154,24 +171,29 @@ class ClipboardHandler:
         try:
             # Сначала копировать
             self._copy()
-            
-            # Потом удалить выделение
-            try:
-                # Для CTkTextbox получить внутренний виджет
-                textbox = self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
-                
-                # Попробовать удалить через стандартные индексы
+
+            if self._is_entry_widget():
+                # CTkEntry: удалить выделение через внутренний tk.Entry
+                entry = self.widget._entry
                 try:
-                    textbox.delete("sel.first", "sel.last")
+                    if entry.selection_present():
+                        entry.delete("sel.first", "sel.last")
+                    logger.debug("✓ Вырезано (Entry)")
                 except (tk.TclError, AttributeError):
-                    # Fallback: через tag_ranges
-                    sel_ranges = textbox.tag_ranges("sel")
-                    if sel_ranges:
-                        textbox.delete(sel_ranges[0], sel_ranges[1])
-                
-                logger.debug(f"✓ Вырезано")
-            except Exception as e:
-                logger.debug(f"⊘ Удаление после вырезания: {e}")
+                    pass
+            else:
+                # CTkTextbox: удалить через внутренний tk.Text виджет
+                textbox = self._get_inner_widget()
+                try:
+                    try:
+                        textbox.delete("sel.first", "sel.last")
+                    except (tk.TclError, AttributeError):
+                        sel_ranges = textbox.tag_ranges("sel")
+                        if sel_ranges:
+                            textbox.delete(sel_ranges[0], sel_ranges[1])
+                    logger.debug("✓ Вырезано (Textbox)")
+                except Exception as e:
+                    logger.debug(f"⊘ Удаление после вырезания: {e}")
         except Exception as e:
             logger.debug(f"⊘ Вырезать: {e}")
     
@@ -179,57 +201,53 @@ class ClipboardHandler:
         """Вставить текст"""
         try:
             text = self.widget.clipboard_get()
-            
-            # Для CTkTextbox получить внутренний виджет
-            textbox = self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
-            entry = self.widget._entry if hasattr(self.widget, '_entry') else self.widget
-            
-            # Удалить выделенный текст если есть
-            try:
-                sel_ranges = textbox.tag_ranges("sel") if hasattr(textbox, 'tag_ranges') else None
-                if sel_ranges:
-                    textbox.delete(sel_ranges[0], sel_ranges[1])
-            except (tk.TclError, AttributeError):
+
+            if self._is_entry_widget():
+                # CTkEntry: использовать внутренний tk.Entry
+                entry = self.widget._entry
                 try:
-                    # Для Entry виджета
                     if entry.selection_present():
                         entry.delete("sel.first", "sel.last")
                 except (tk.TclError, AttributeError):
                     pass
-            
-            # Вставить текст
-            if hasattr(textbox, 'insert'):
-                textbox.insert("insert", text)
-            elif hasattr(entry, 'insert'):
-                entry.insert("insert", text)
-            
-            logger.debug(f"✓ Вставлено: {len(text)} символов")
+                entry.insert(tk.INSERT, text)
+                logger.debug(f"✓ Вставлено (Entry): {len(text)} символов")
+            else:
+                # CTkTextbox: использовать внутренний tk.Text виджет
+                textbox = self._get_inner_widget()
+                try:
+                    sel_ranges = textbox.tag_ranges("sel") if hasattr(textbox, 'tag_ranges') else None
+                    if sel_ranges:
+                        textbox.delete(sel_ranges[0], sel_ranges[1])
+                except (tk.TclError, AttributeError):
+                    pass
+                if hasattr(textbox, 'insert'):
+                    textbox.insert("insert", text)
+                logger.debug(f"✓ Вставлено (Textbox): {len(text)} символов")
         except Exception as e:
             logger.debug(f"⊘ Вставить: {e}")
     
     def _select_all(self):
         """Выделить весь текст"""
         try:
-            # Для CTkTextbox получить внутренний виджет
-            textbox = self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
-            entry = self.widget._entry if hasattr(self.widget, '_entry') else self.widget
-            
-            # Попробовать выделить как текстовый виджет
-            if hasattr(textbox, 'tag_add'):
-                textbox.tag_add("sel", "1.0", "end-1c")
-                textbox.mark_set("insert", "1.0")
-                textbox.see("insert")
-            # Или как Entry виджет
-            elif hasattr(entry, 'select_range'):
-                entry.select_range(0, "end")
-                entry.icursor("end")
-            
-            # Установить фокус
+            if self._is_entry_widget():
+                # CTkEntry: использовать внутренний tk.Entry
+                entry = self.widget._entry
+                entry.select_range(0, tk.END)
+                entry.icursor(tk.END)
+            else:
+                # CTkTextbox: использовать внутренний tk.Text виджет
+                textbox = self._get_inner_widget()
+                if hasattr(textbox, 'tag_add'):
+                    textbox.tag_add("sel", "1.0", "end-1c")
+                    textbox.mark_set("insert", "1.0")
+                    textbox.see("insert")
+
             try:
                 self.widget.focus_set()
             except (tk.TclError, AttributeError):
                 pass
-            
-            logger.debug(f"✓ Выделено всё")
+
+            logger.debug("✓ Выделено всё")
         except Exception as e:
             logger.debug(f"⊘ Выделение: {e}")

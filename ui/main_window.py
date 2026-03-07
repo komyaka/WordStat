@@ -10,7 +10,7 @@ from datetime import datetime
 from utils.logger import get_logger
 from utils.constants import DEVICE_TYPES, GEO_MODES, CACHE_MODES
 from .styles import AppTheme, UIConfig
-from .widgets import LabeledEntry, LabeledTextbox, StatCard, LogTable
+from .widgets import LabeledEntry, LabeledComboBox, LabeledTextbox, StatCard, LogTable
 from .clipboard_handler import ClipboardHandler
 
 logger = get_logger('WordStat.UI')
@@ -396,10 +396,11 @@ class MainWindow(ctk.CTk):
         )
         self.ai_max_features.pack(fill='x', pady=5, padx=10)
         
-        self.ai_clustering_mode = LabeledEntry(
+        self.ai_clustering_mode = LabeledComboBox(
             params_frame,
-            label_text="🔗 Режим (auto/semantic/tfidf/threshold/fixed):",
-            placeholder="auto"
+            label_text="🔗 Режим работы анализа:",
+            values=["auto", "semantic", "tfidf", "threshold", "fixed"],
+            default="auto"
         )
         self.ai_clustering_mode.pack(fill='x', pady=5, padx=10)
         
@@ -419,13 +420,15 @@ class MainWindow(ctk.CTk):
         
         # ✅ ИНФО О ДОСТУПНЫХ МЕТОДАХ
         try:
-            from ai.clustering import SemanticAnalyzer
+            from ai.clustering import SemanticAnalyzer, SENTENCE_TRANSFORMERS_AVAILABLE
             if SemanticAnalyzer.is_semantic_available():
                 method_info = "✅ Sentence-Transformers доступен (лучший метод)"
+            elif SENTENCE_TRANSFORMERS_AVAILABLE is False:
+                method_info = "⚠ Sentence-Transformers недоступен, используется TF-IDF (проверьте лог)"
             else:
                 method_info = "⚠ Sentence-Transformers не установлен, используется TF-IDF"
-        except Exception:
-            method_info = "📊 TF-IDF кластеризация"
+        except Exception as e:
+            method_info = f"📊 TF-IDF кластеризация (ошибка загрузки: {type(e).__name__})"
         
         self.ai_method_label = ctk.CTkLabel(
             params_frame,
