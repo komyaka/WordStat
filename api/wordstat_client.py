@@ -5,7 +5,6 @@ import requests
 import time
 import json
 from typing import Optional, List, Dict, Tuple
-from datetime import datetime
 
 from utils.logger import get_logger
 from utils.constants import DEFAULT_TIMEOUT, DEFAULT_RETRIES, DEFAULT_NUM_PHRASES

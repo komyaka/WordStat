@@ -350,7 +350,7 @@ class VerificationPhase:
         try:
             from engine.rate_limiter import RateLimiter
             
-            limiter = RateLimiter(max_rps=5, max_per_hour=100, max_per_day=50)
+            limiter = RateLimiter(max_rps=5, max_per_hour=100, max_per_day=1000)
             
             # RPS check
             success_count = 0
