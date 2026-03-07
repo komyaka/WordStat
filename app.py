@@ -137,6 +137,7 @@ class WordStatApp:
         self.ui.on_export_callback = self._on_ui_export
         self.ui.on_ai_analyze_callback = self._on_ai_analyze
         self.ui.on_ai_export_callback = self._on_ai_export
+        self.ui.on_apply_filters_callback = self._on_apply_filters
         
         # ✅ ХРАНЕНИЕ РЕЗУЛЬТАТОВ КЛАСТЕРИЗАЦИИ
         self._last_clusters = {}
@@ -147,6 +148,18 @@ class WordStatApp:
         self.ui_dispatch = self.ui.post_to_ui
         
         self._load_config_to_ui()
+
+        # ✅ ПЕРИОДИЧЕСКИЙ АВТОСЕЙВ (каждые 60 секунд)
+        self._autosave_interval = int(
+            self.config.get('autosave', {}).get('interval_sec', 60)
+        )
+        self._autosave_stop = threading.Event()
+        self._autosave_thread = threading.Thread(
+            target=self._periodic_autosave_loop,
+            daemon=True,
+            name="AutosaveThread"
+        )
+        self._autosave_thread.start()
 
         # ✅ СОХРАНИТЬ КОНФИГ ПРИ ЗАКРЫТИИ ОКНА
         self.ui.protocol("WM_DELETE_WINDOW", self._on_window_close)
@@ -439,14 +452,21 @@ class WordStatApp:
         """Обёртка для потока AI анализа"""
         try:
             logger.info("🚀 AI анализ начался в отдельном потоке")
-            
+
+            # ✅ СБРОСИТЬ ПРОГРЕСС-БАР В НАЧАЛЕ
+            self.ui_dispatch(self.ui.update_ai_progress, 0, "Запуск анализа...")
+
+            def _progress_cb(pct: int, msg: str) -> None:
+                self.ui_dispatch(self.ui.update_ai_progress, pct, msg)
+
             # ✅ ЗАПУСТИТЬ КЛАСТЕРИЗАЦИЮ
             clusters = self.analyzer.analyze(
                 self.parser.state.keywords,
                 threshold=settings.get('threshold', 0.5),
                 n_clusters=settings.get('n_clusters', 10),
                 clustering_mode=settings.get('clustering_mode', 'threshold'),
-                min_cluster_size=2  # Минимум 2 ключа в кластере
+                min_cluster_size=2,  # Минимум 2 ключа в кластере
+                progress_callback=_progress_cb
             )
             
             logger.info(f"✓ AI анализ завершён: {len(clusters)} кластеров")
@@ -486,6 +506,7 @@ class WordStatApp:
         except Exception as e:
             logger.error(f"✗ Ошибка в потоке AI: {e}")
             self.ui_dispatch(self.ui.set_status, f"❌ Ошибка AI: {e}")
+            self.ui_dispatch(self.ui.update_ai_progress, 0, f"Ошибка: {e}")
             import traceback
             traceback.print_exc()
     
@@ -537,13 +558,78 @@ class WordStatApp:
             logger.info("✓ Состояние сохранено в файлы")
         
         except Exception as e:
-            logger.error(f"✗ ��шибка автосейва: {e}")
+            logger.error(f"✗ Ошибка автосейва: {e}")
             import traceback
             traceback.print_exc()
-    
+
+    def _periodic_autosave_loop(self) -> None:
+        """Фоновый поток: периодически сохраняет результаты парсинга"""
+        logger.info(f"⏰ Периодический автосейв запущен (интервал {self._autosave_interval}с)")
+        while not self._autosave_stop.wait(self._autosave_interval):
+            try:
+                if self.parser.state.keywords:
+                    logger.info("⏰ Периодический автосейв...")
+                    self._on_autosave()
+            except Exception as e:
+                logger.error(f"✗ Ошибка периодического автосейва: {e}")
+        logger.info("⏰ Периодический автосейв остановлен")
+
+    def _on_apply_filters(self) -> None:
+        """Callback: Применить фильтры к уже полученным данным"""
+        logger.info("🔧 Применяю фильтры к существующим данным...")
+        try:
+            filter_settings = self.ui.get_filter_settings()
+
+            # Обновить keyword_filter из UI
+            self.keyword_filter.set_min_count(filter_settings.get('min_count', 1))
+            self.keyword_filter.set_word_range(
+                filter_settings.get('min_words', 1),
+                filter_settings.get('max_words', 10)
+            )
+            if filter_settings.get('include_regex'):
+                self.keyword_filter.set_include_regex(filter_settings.get('include_regex'))
+            else:
+                self.keyword_filter.set_include_regex('')
+            if filter_settings.get('exclude_regex'):
+                self.keyword_filter.set_exclude_regex(filter_settings.get('exclude_regex'))
+            else:
+                self.keyword_filter.set_exclude_regex('')
+            self.keyword_filter.set_exclude_substrings(
+                filter_settings.get('exclude_substrings', '')
+            )
+            minus_words = filter_settings.get('minus_words', '')
+            minus_mode = filter_settings.get('minus_word_mode', 'any')
+            if minus_words:
+                self.keyword_filter.set_minus_words(minus_words, minus_mode)
+            else:
+                self.keyword_filter.minus_words = []
+
+            with self.parser.state_lock:
+                all_kw = dict(self.parser.state.keywords)
+
+            filtered = {}
+            for phrase, kwd in all_kw.items():
+                passed, _ = self.keyword_filter.apply(kwd.phrase, kwd.count)
+                if passed:
+                    filtered[phrase] = kwd
+
+            logger.info(f"🔧 Фильтр: {len(all_kw)} → {len(filtered)} ключей")
+            self.ui.display_keywords(filtered)
+            self.ui.set_status(f"✓ Фильтр применён: {len(filtered)} из {len(all_kw)} ключей")
+
+        except Exception as e:
+            logger.error(f"✗ Ошибка применения фильтров: {e}")
+            self.ui.set_status(f"❌ Ошибка фильтрации: {e}")
+            import traceback
+            traceback.print_exc()
+
     def _on_window_close(self) -> None:
         """Обработчик закрытия окна — сохранить конфиг и завершить"""
         logger.info("🚪 Закрытие окна...")
+        try:
+            self._autosave_stop.set()
+        except Exception as e:
+            logger.warning(f"⚠ Ошибка остановки autosave потока: {e}")
         try:
             self._save_config_from_ui()
             logger.info("✓ Конфиг сохранён при закрытии")
