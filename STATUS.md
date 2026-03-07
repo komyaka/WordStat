@@ -485,3 +485,21 @@ DETAILS: ACs covered via new unit tests and regression suite (acceptance_feature
 | 2026-02-26T12:55:00Z | Coder applied review feedback and reran regression tests |
 | 2026-02-26T13:15:10Z | Added acceptance feature tests for dispatcher/cache/export |
 | 2026-02-26T13:40:00Z | Auditor verified ACs and STATUS |
+
+---
+
+## Startup Crash Fix (2026-03-07)
+
+### Changes
+- `requirements.txt`: updated numpy, sentence-transformers, hdbscan version pins to resolve dependency conflicts with torch>=2.6.0 on Windows Python 3.11
+- `clipboard_handler.py`: restored missing `def _show_context_menu(self, event)` method definition (body was orphaned as dead code inside `_get_inner_widget`)
+- `main_window.py`: moved module-level `ctk.set_appearance_mode()` and `ctk.set_default_color_theme()` into `MainWindow.__init__()` to prevent import-time failures
+- `main.py`: broadened torch warm-up exception handling from `ImportError` to `(ImportError, OSError, RuntimeError)` to handle Windows DLL load failures
+
+```
+STATUS: VERIFIED
+AGENT: coder
+PHASE: implementation
+TIMESTAMP: 2026-03-07T12:00:00Z
+DETAILS: All 4 root causes addressed; 6/6 existing tests pass; import chain verified.
+```
