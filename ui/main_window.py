@@ -78,9 +78,6 @@ def _safe_float(value, default, min_val=None, max_val=None):
         return default
 
 
-# ✅ УСТАНОВИТЬ ТЕМУ
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
 
 EXPORT_MODES = ["seo", "ppc", "content"]
 
@@ -89,6 +86,9 @@ class MainWindow(ctk.CTk):
     
     def __init__(self):
         """Инициализация"""
+        # ✅ УСТАНОВИТЬ ТЕМУ ДО СОЗДАНИЯ ОКНА
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
         super().__init__()
         
         self.title("🔍 SEO Wordstat Master AI v.2026")

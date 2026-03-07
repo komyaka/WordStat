@@ -61,13 +61,13 @@ class ClipboardHandler:
             return self.widget._entry
         return self.widget._textbox if hasattr(self.widget, '_textbox') else self.widget
 
-
+    def _show_context_menu(self, event):
         """Показать контекстное меню"""
         try:
             self.context_menu.post(event.x_root, event.y_root)
         except Exception as e:
             logger.debug(f"⚠ Ошибка меню: {e}")
-    
+
     def _on_copy_event(self, event=None):
         """Обработчик события копирования"""
         try:

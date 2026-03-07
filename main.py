@@ -20,8 +20,8 @@ if sys.platform == 'win32':
 # ВАЖНО: прогреваем torch до любых GUI/прочих импортов
 try:
     import torch
-except ImportError:
-    print("⚠ torch не установлен, AI-функции кластеризации будут недоступны")
+except (ImportError, OSError, RuntimeError):
+    print("⚠ torch не установлен или недоступен, AI-функции кластеризации будут недоступны")
 
 # Добавить текущую директорию в путь
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
