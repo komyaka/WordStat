@@ -3,7 +3,8 @@
 ВЕРСИЯ 2.0: С поддержкой Sentence-Transformers и HDBSCAN
 """
 import threading
-from typing import Dict, List, Set, Tuple, Optional
+import time
+from typing import Callable, Dict, List, Set, Tuple, Optional
 import numpy as np
 from collections import defaultdict
 import re
@@ -68,6 +69,17 @@ except SyntaxError as e:
     logger.error(f"⚠ hdbscan повреждён: {e}")
     HDBSCAN_AVAILABLE = False
 
+# ✅ ОПРЕДЕЛЕНИЕ УСТРОЙСТВА (CPU / GPU)
+try:
+    import torch
+    _TORCH_DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if _TORCH_DEVICE == 'cuda':
+        logger.info(f"✓ GPU доступен: {torch.cuda.get_device_name(0)} — используем CUDA для эмбеддингов")
+    else:
+        logger.info("ℹ GPU не обнаружен — используем CPU для эмбеддингов")
+except Exception:
+    _TORCH_DEVICE = 'cpu'
+
 # Русские стоп-слова для фильтрации
 RUSSIAN_STOP_WORDS = {
     'и', 'в', 'во', 'не', 'что', 'он', 'на', 'я', 'с', 'со', 'как', 'а', 'то', 'все',
@@ -124,9 +136,9 @@ class SemanticAnalyzer:
                 model_name = self.EMBEDDING_MODELS.get(embedding_model, 
                                                        self.EMBEDDING_MODELS['multilingual'])
                 try:
-                    logger.info(f"🔄 Загружаю модель эмбеддингов: {model_name}...")
-                    self.sentence_model = SentenceTransformer(model_name)
-                    logger.info(f"✓ Модель загружена: {model_name}")
+                    logger.info(f"🔄 Загружаю модель эмбеддингов: {model_name} (device={_TORCH_DEVICE})...")
+                    self.sentence_model = SentenceTransformer(model_name, device=_TORCH_DEVICE)
+                    logger.info(f"✓ Модель загружена: {model_name} на {_TORCH_DEVICE}")
                 except Exception as e:
                     logger.warning(f"⚠ Ошибка загрузки модели: {e}, используем TF-IDF")
                     self.use_semantic = False
@@ -321,7 +333,8 @@ class SemanticAnalyzer:
                 threshold: float = 0.5, 
                 n_clusters: int = 10,
                 clustering_mode: str = 'auto',
-                min_cluster_size: int = 2) -> Dict[str, List[str]]:
+                min_cluster_size: int = 2,
+                progress_callback: Optional[Callable[[int, str], None]] = None) -> Dict[str, List[str]]:
         """
         Кластеризировать ключевые слова с использованием лучших доступных методов.
         
@@ -331,10 +344,18 @@ class SemanticAnalyzer:
             n_clusters: Количество кластеров (для fixed режима)
             clustering_mode: 'auto', 'semantic', 'tfidf', 'threshold', 'fixed'
             min_cluster_size: Минимальный размер кластера
+            progress_callback: Опциональный callback(percent: int, message: str)
         
         Returns:
             Словарь кластеров {центр: [ключевые слова]}
         """
+        def _report(pct: int, msg: str) -> None:
+            if progress_callback:
+                try:
+                    progress_callback(pct, msg)
+                except Exception as cb_exc:
+                    logger.debug(f"⚠ Ошибка progress_callback: {cb_exc}")
+
         try:
             if not keywords:
                 logger.warning("⚠ Пусто ключевых слов для анализа")
@@ -347,6 +368,9 @@ class SemanticAnalyzer:
             logger.info(f"🤖 Начинаю AI анализ: {len(keywords)} ключевых слов")
             logger.info(f"   Mode: {clustering_mode}, threshold: {threshold}, n_clusters: {n_clusters}")
             
+            _report(5, "Подготовка данных...")
+            _start_time = time.monotonic()
+
             with self.lock:
                 phrases = list(keywords.keys())
                 
@@ -359,13 +383,17 @@ class SemanticAnalyzer:
                     # ЛУЧШИЙ ВАРИАНТ: Sentence-Transformers
                     logger.info("🧠 Используем Sentence-Transformers (семантические эмбеддинги)")
                     self._clustering_method = 'Sentence-Transformers'
+                    _report(15, f"Генерация эмбеддингов ({_TORCH_DEVICE.upper()})...")
                     embeddings = self._get_semantic_embeddings(phrases)
                 else:
                     # Fallback: TF-IDF
                     logger.info("📊 Используем TF-IDF (лексические эмбеддинги)")
                     self._clustering_method = 'TF-IDF'
+                    _report(15, "Генерация TF-IDF векторов...")
                     embeddings = self._get_tfidf_embeddings(phrases)
                 
+                _report(55, "Кластеризация...")
+
                 # ✅ ВЫБОР МЕТОДА КЛАСТЕРИЗАЦИИ
                 if clustering_mode == 'threshold':
                     # Порог сходства
@@ -389,11 +417,16 @@ class SemanticAnalyzer:
                     labels = self._cluster_agglomerative(embeddings, n_clusters)
                     clusters = self._labels_to_clusters(phrases, labels)
                 
+                _report(85, "Постобработка кластеров...")
+
                 # ✅ ПРИМЕНИТЬ МИНИМАЛЬНЫЙ РАЗМЕР КЛАСТЕРА
                 clusters = self._enforce_min_cluster_size(clusters, min_cluster_size)
                 
-                logger.info(f"✓ Кластеризация завершена: {len(clusters)} кластеров ({self._clustering_method})")
+                elapsed = time.monotonic() - _start_time
+                logger.info(f"✓ Кластеризация завершена: {len(clusters)} кластеров ({self._clustering_method}) за {elapsed:.1f}с")
                 
+                _report(100, f"Готово: {len(clusters)} кластеров за {elapsed:.1f}с")
+
                 self._last_clusters = clusters
                 return clusters
         
@@ -401,6 +434,7 @@ class SemanticAnalyzer:
             logger.error(f"✗ Ошибка анализа: {e}")
             import traceback
             traceback.print_exc()
+            _report(0, f"Ошибка: {e}")
             return {}
     
     def _labels_to_clusters(self, phrases: List[str], 

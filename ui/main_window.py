@@ -106,6 +106,7 @@ class MainWindow(ctk.CTk):
         self.on_ai_analyze_callback: Optional[Callable] = None
         self.on_ai_export_callback: Optional[Callable] = None
         self.on_ai_copy_callback: Optional[Callable] = None
+        self.on_apply_filters_callback: Optional[Callable] = None
         
         self.status_label = None
         self.keywords_table = None
@@ -364,6 +365,18 @@ class MainWindow(ctk.CTk):
             placeholder="any"
         )
         self.filter_minus_mode.pack(fill='x', pady=5)
+        
+        # ✅ КНОПКА ПРИМЕНЕНИЯ ФИЛЬТРОВ
+        self.btn_apply_filters = ctk.CTkButton(
+            container,
+            text="🔧 Применить фильтры",
+            command=self._on_apply_filters,
+            fg_color=UIConfig.COLOR_INFO,
+            text_color=UIConfig.TEXT_PRIMARY,
+            font=UIConfig.FONT_NORMAL,
+            height=40
+        )
+        self.btn_apply_filters.pack(fill='x', pady=10)
     
     def _create_tab_ai(self):
         """Создать вкладку AI"""
@@ -477,6 +490,26 @@ class MainWindow(ctk.CTk):
             width=150
         )
         self.btn_ai_copy.pack(side='left', padx=5, pady=10)
+        
+        # ✅ ПРОГРЕСС-БАР AI АНАЛИЗА
+        progress_frame = ctk.CTkFrame(container, fg_color=UIConfig.BG_SECONDARY)
+        progress_frame.pack(fill='x', padx=5, pady=(0, 5))
+        
+        self.ai_progress_label = ctk.CTkLabel(
+            progress_frame,
+            text="⏳ Готов к анализу",
+            font=UIConfig.FONT_SMALL,
+            text_color=UIConfig.TEXT_PRIMARY
+        )
+        self.ai_progress_label.pack(anchor='w', padx=10, pady=(6, 2))
+        
+        self.ai_progress_bar = ctk.CTkProgressBar(
+            progress_frame,
+            height=14,
+            mode='determinate'
+        )
+        self.ai_progress_bar.set(0)
+        self.ai_progress_bar.pack(fill='x', padx=10, pady=(0, 6))
         
         # ✅ РЕЗУЛЬТАТЫ АНАЛИЗА
         results_label = ctk.CTkLabel(
@@ -749,6 +782,30 @@ class MainWindow(ctk.CTk):
             logger.error(f"✗ Ошибка копирования: {e}")
             self.set_status(f"❌ Ошибка копирования: {e}")
     
+    def _on_apply_filters(self):
+        """Кнопка Применить фильтры"""
+        logger.info("🔧 Клик по кнопке Применить фильтры")
+        if self.on_apply_filters_callback:
+            try:
+                self.set_status("🔧 Применяю фильтры...")
+                self.on_apply_filters_callback()
+            except Exception as e:
+                logger.error(f"✗ Ошибка callback фильтров: {e}")
+                self.set_status(f"❌ Ошибка фильтрации: {e}")
+        else:
+            logger.warning("⚠ on_apply_filters_callback не установлен")
+
+    def update_ai_progress(self, percent: int, message: str = ""):
+        """Обновить прогресс-бар AI анализа (percent: 0-100)"""
+        try:
+            value = max(0.0, min(1.0, percent / 100.0))
+            self.ai_progress_bar.set(value)
+            label_text = f"{'✓' if percent >= 100 else '⏳'} {message or f'{percent}%'}"
+            self.ai_progress_label.configure(text=label_text)
+            self.update()
+        except Exception as e:
+            logger.error(f"✗ Ошибка update_ai_progress: {e}")
+
     def update_stats(self, stats: Dict):
         """Обновить статистику"""
         try:
