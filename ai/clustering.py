@@ -54,8 +54,14 @@ except SyntaxError as e:
     logger.error("Попробуйте переустановить: pip uninstall sentence-transformers && pip install sentence-transformers")
 except Exception as e:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    logger.error(f"⚠ sentence-transformers недоступен (ошибка: {type(e).__name__}: {e})")
-    logger.error("Попробуйте переустановить: pip uninstall sentence-transformers && pip install sentence-transformers")
+    error_msg = str(e).lower()
+    if 'keras 3' in error_msg or 'tf-keras' in error_msg:
+        logger.error(f"⚠ sentence-transformers недоступен: конфликт Keras 3 с transformers")
+        logger.error("Решение: pip install tf-keras")
+        logger.error("Или удалите tensorflow, если он не нужен: pip uninstall tensorflow keras")
+    else:
+        logger.error(f"⚠ sentence-transformers недоступен (ошибка: {type(e).__name__}: {e})")
+        logger.error("Попробуйте переустановить: pip uninstall sentence-transformers && pip install sentence-transformers")
 
 # ✅ HDBSCAN - ЛУЧШИЙ АЛГОРИТМ КЛАСТЕРИЗАЦИИ
 try:
