@@ -437,7 +437,7 @@ class MainWindow(ctk.CTk):
             if SemanticAnalyzer.is_semantic_available():
                 method_info = "✅ Sentence-Transformers доступен (лучший метод)"
             elif SENTENCE_TRANSFORMERS_AVAILABLE is False:
-                method_info = "⚠ Sentence-Transformers недоступен, используется TF-IDF (проверьте лог)"
+                method_info = "⚠ Sentence-Transformers недоступен, используется TF-IDF (попробуйте: pip install tf-keras)"
             else:
                 method_info = "⚠ Sentence-Transformers не установлен, используется TF-IDF"
         except Exception as e:
