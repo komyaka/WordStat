@@ -17,6 +17,7 @@ from engine.parser import ParsingEngine
 from filters.keyword_filters import KeywordFilter
 from nlp.geo_cleaner import GeoMode
 from ai.clustering import SemanticAnalyzer
+from ai.content_brief import ContentBriefGenerator
 from ui.main_window import MainWindow
 
 logger = get_logger('WordStat.App')
@@ -121,14 +122,21 @@ class WordStatApp:
         except Exception as e:
             logger.critical(f"✗ Ошибка инициализации ExcelExporter: {e}")
             raise
-        
+
+        try:
+            self.brief_generator = ContentBriefGenerator()
+            logger.info("✓ ContentBriefGenerator инициализирован")
+        except Exception as e:
+            logger.critical(f"✗ Ошибка инициализации ContentBriefGenerator: {e}")
+            raise
+
         try:
             self.ui = MainWindow()
             logger.info("✓ MainWindow инициализирован")
         except Exception as e:
             logger.critical(f"✗ Ошибка инициализации UI: {e}")
             raise
-        
+
         # ✅ УСТАНОВИТЬ ВСЕ CALLBACKS
         self.ui.on_start_callback = self._on_ui_start
         self.ui.on_pause_callback = self._on_ui_pause
@@ -138,7 +146,8 @@ class WordStatApp:
         self.ui.on_ai_analyze_callback = self._on_ai_analyze
         self.ui.on_ai_export_callback = self._on_ai_export
         self.ui.on_apply_filters_callback = self._on_apply_filters
-        
+        self.ui.on_generate_prompts_callback = self._on_generate_prompts
+
         # ✅ ХРАНЕНИЕ РЕЗУЛЬТАТОВ КЛАСТЕРИЗАЦИИ
         self._last_clusters = {}
         
@@ -622,6 +631,26 @@ class WordStatApp:
             self.ui.set_status(f"❌ Ошибка фильтрации: {e}")
             import traceback
             traceback.print_exc()
+
+    def _on_generate_prompts(self) -> None:
+        """Callback: Генерация промптов из AI-кластеров"""
+        try:
+            if not self._last_clusters:
+                self.ui.set_status("⚠ Нет кластеров. Сначала запустите AI анализ.")
+                logger.warning("⚠ _on_generate_prompts: _last_clusters пуст")
+                return
+
+            self.ui.set_status("📝 Генерация промптов...")
+            n = self.brief_generator.generate_all(
+                self._last_clusters,
+                self.parser.state.keywords,
+                self.analyzer.get_clustering_method()
+            )
+            self.ui.set_status(f"✓ Сгенерировано {n} промптов в prompt/base/")
+            logger.info(f"✓ Сгенерировано {n} промптов")
+        except Exception as e:
+            logger.error(f"✗ Ошибка генерации промптов: {e}")
+            self.ui.set_status(f"❌ Ошибка генерации промптов: {e}")
 
     def _on_window_close(self) -> None:
         """Обработчик закрытия окна — сохранить конфиг и завершить"""

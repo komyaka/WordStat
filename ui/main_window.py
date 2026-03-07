@@ -107,6 +107,7 @@ class MainWindow(ctk.CTk):
         self.on_ai_export_callback: Optional[Callable] = None
         self.on_ai_copy_callback: Optional[Callable] = None
         self.on_apply_filters_callback: Optional[Callable] = None
+        self.on_generate_prompts_callback: Optional[Callable] = None
         
         self.status_label = None
         self.keywords_table = None
@@ -490,6 +491,18 @@ class MainWindow(ctk.CTk):
             width=150
         )
         self.btn_ai_copy.pack(side='left', padx=5, pady=10)
+
+        self.btn_generate_prompts = ctk.CTkButton(
+            button_frame,
+            text="📝 Генерировать промпты",
+            command=self._on_generate_prompts,
+            fg_color="#9B59B6",
+            text_color=UIConfig.TEXT_PRIMARY,
+            font=UIConfig.FONT_NORMAL,
+            height=40,
+            width=200
+        )
+        self.btn_generate_prompts.pack(side='left', padx=5, pady=10)
         
         # ✅ ПРОГРЕСС-БАР AI АНАЛИЗА
         progress_frame = ctk.CTkFrame(container, fg_color=UIConfig.BG_SECONDARY)
@@ -781,7 +794,20 @@ class MainWindow(ctk.CTk):
         except Exception as e:
             logger.error(f"✗ Ошибка копирования: {e}")
             self.set_status(f"❌ Ошибка копирования: {e}")
-    
+
+    def _on_generate_prompts(self):
+        """Кнопка генерации промптов"""
+        logger.info("📝 Клик по кнопке Генерировать промпты")
+
+        if hasattr(self, 'on_generate_prompts_callback') and self.on_generate_prompts_callback:
+            try:
+                self.on_generate_prompts_callback()
+            except Exception as e:
+                logger.error(f"✗ Ошибка генерации промптов: {e}")
+                self.set_status(f"❌ Ошибка: {e}")
+        else:
+            logger.warning("⚠ on_generate_prompts_callback не установлен")
+
     def _on_apply_filters(self):
         """Кнопка Применить фильтры"""
         logger.info("🔧 Клик по кнопке Применить фильтры")
