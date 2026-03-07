@@ -69,6 +69,19 @@ except SyntaxError as e:
     logger.error(f"⚠ hdbscan повреждён: {e}")
     HDBSCAN_AVAILABLE = False
 
+# ✅ LEIDEN - ГРАФОВАЯ КЛАСТЕРИЗАЦИЯ
+try:
+    import igraph as ig
+    import leidenalg
+    LEIDEN_AVAILABLE = True
+    logger.info("✓ Leiden доступен - графовая кластеризация включена")
+except ImportError:
+    LEIDEN_AVAILABLE = False
+    logger.warning("⚠ leidenalg/igraph не установлены, Leiden недоступен")
+except Exception as e:
+    LEIDEN_AVAILABLE = False
+    logger.error(f"⚠ Leiden недоступен: {e}")
+
 # ✅ ОПРЕДЕЛЕНИЕ УСТРОЙСТВА (CPU / GPU)
 try:
     import torch
@@ -100,9 +113,16 @@ class SemanticAnalyzer:
     
     # Лучшие модели для русского языка
     EMBEDDING_MODELS = {
-        'multilingual': 'paraphrase-multilingual-MiniLM-L12-v2',  # Быстрая, хорошее качество
-        'multilingual_large': 'paraphrase-multilingual-mpnet-base-v2',  # Лучшее качество
-        'labse': 'sentence-transformers/LaBSE',  # Отличная для русского
+        # 🏆 ЛУЧШИЕ для русского (2025-2026)
+        'bge-m3': 'BAAI/bge-m3',
+        'user-bge-m3': 'deepvk/USER-bge-m3',
+        'e5-large': 'intfloat/multilingual-e5-large-instruct',
+        # ✅ ХОРОШИЕ (баланс скорость/качество)
+        'labse-ru': 'sergeyzh/LaBSE-ru-sts',
+        'labse': 'sentence-transformers/LaBSE',
+        # ⚡ БЫСТРЫЕ (слабое железо)
+        'multilingual': 'paraphrase-multilingual-MiniLM-L12-v2',
+        'multilingual_large': 'paraphrase-multilingual-mpnet-base-v2',
     }
     
     def __init__(self, 
@@ -195,12 +215,15 @@ class SemanticAnalyzer:
             
             logger.info(f"🧠 Генерирую семантические эмбеддинги для {len(phrases)} фраз...")
             
-            # Sentence-Transformers автоматически обрабатывает батчи
+            # Use batching for large datasets
+            batch_size = 256 if _TORCH_DEVICE == 'cuda' else 128
+
             embeddings = self.sentence_model.encode(
                 phrases,
                 show_progress_bar=False,
                 convert_to_numpy=True,
-                normalize_embeddings=True  # L2 нормализация для косинусного сходства
+                normalize_embeddings=True,  # L2 нормализация для косинусного сходства
+                batch_size=batch_size
             )
             
             logger.info(f"✓ Эмбеддинги созданы: {embeddings.shape}")
@@ -300,27 +323,27 @@ class SemanticAnalyzer:
     def _cluster_threshold(self, phrases: List[str], 
                           similarity_matrix: np.ndarray,
                           threshold: float = 0.5) -> Dict[str, List[str]]:
-        """Кластеризация по порогу сходства (для режима threshold)"""
+        """Кластеризация по порогу сходства — оптимизированная версия"""
         try:
-            logger.info(f"🔗 Кластеризация по порогу: {threshold}")
+            logger.info(f"🔗 Кластеризация по порогу: {threshold} ({len(phrases)} фраз)")
             
+            n = len(phrases)
             clusters = {}
-            assigned = set()
+            assigned = np.zeros(n, dtype=bool)
             
-            for i, phrase in enumerate(phrases):
-                if i in assigned:
+            for i in range(n):
+                if assigned[i]:
                     continue
                 
-                similar = [i]
-                for j in range(i + 1, len(phrases)):
-                    if j not in assigned and similarity_matrix[i, j] >= threshold:
-                        similar.append(j)
-                        assigned.add(j)
+                # Vectorized: find all similar unassigned phrases
+                mask = (~assigned) & (similarity_matrix[i] >= threshold)
+                mask[i] = True  # include self
+                similar_indices = np.where(mask)[0]
                 
-                assigned.add(i)
+                assigned[similar_indices] = True
                 
-                center_phrase = phrase
-                cluster_phrases = [phrases[idx] for idx in similar]
+                center_phrase = phrases[i]
+                cluster_phrases = [phrases[idx] for idx in similar_indices]
                 clusters[center_phrase] = cluster_phrases
             
             return clusters
@@ -329,6 +352,45 @@ class SemanticAnalyzer:
             logger.error(f"✗ Ошибка _cluster_threshold: {e}")
             return {}
     
+    def _compute_similarity_chunked(self, embeddings: np.ndarray, chunk_size: int = 5000) -> np.ndarray:
+        """Compute cosine similarity in chunks to reduce memory usage."""
+        n = len(embeddings)
+        if n <= chunk_size:
+            return cosine_similarity(embeddings)
+        
+        logger.info(f"🧮 Вычисляю матрицу сходства по частям ({n}x{n})...")
+        similarity = np.zeros((n, n), dtype=np.float32)
+        
+        for i in range(0, n, chunk_size):
+            end_i = min(i + chunk_size, n)
+            for j in range(i, n, chunk_size):
+                end_j = min(j + chunk_size, n)
+                block = cosine_similarity(embeddings[i:end_i], embeddings[j:end_j])
+                similarity[i:end_i, j:end_j] = block
+                if i != j:
+                    similarity[j:end_j, i:end_i] = block.T
+        
+        return similarity
+
+    def _cluster_leiden(self, embeddings: np.ndarray, threshold: float = 0.3) -> np.ndarray:
+        """Leiden графовая кластеризация — лучший для SEO."""
+        similarity = self._compute_similarity_chunked(embeddings)
+        n = len(similarity)
+        i_indices, j_indices = np.triu_indices(n, k=1)
+        mask = similarity[i_indices, j_indices] >= threshold
+        edges = list(zip(i_indices[mask].tolist(), j_indices[mask].tolist()))
+        weights = similarity[i_indices[mask], j_indices[mask]].tolist()
+        
+        if not edges:
+            return np.zeros(n, dtype=int)
+        
+        graph = ig.Graph(n=n, edges=edges)
+        graph.es['weight'] = weights
+        partition = leidenalg.find_partition(
+            graph, leidenalg.ModularityVertexPartition, weights='weight'
+        )
+        return np.array(partition.membership)
+
     def analyze(self, keywords: Dict[str, KeywordData], 
                 threshold: float = 0.5, 
                 n_clusters: int = 10,
@@ -342,7 +404,7 @@ class SemanticAnalyzer:
             keywords: Словарь ключевых слов
             threshold: Порог сходства (для threshold режима)
             n_clusters: Количество кластеров (для fixed режима)
-            clustering_mode: 'auto', 'semantic', 'tfidf', 'threshold', 'fixed'
+            clustering_mode: 'auto', 'semantic', 'tfidf', 'threshold', 'fixed', 'leiden'
             min_cluster_size: Минимальный размер кластера
             progress_callback: Опциональный callback(percent: int, message: str)
         
@@ -378,9 +440,9 @@ class SemanticAnalyzer:
                     logger.warning("⚠ Недостаточно фраз для кластеризации")
                     return {'Другое': phrases} if phrases else {}
                 
-                # ✅ ВЫБОР МЕТОДА ЭМБЕДДИНГОВ
-                if clustering_mode in ['auto', 'semantic'] and self.use_semantic:
-                    # ЛУЧШИЙ ВАРИАНТ: Sentence-Transformers
+                # ✅ ВЫБОР МЕТОДА ЭМБЕДДИНГОВ (независимо от режима кластеризации)
+                if clustering_mode != 'tfidf' and self.use_semantic:
+                    # Sentence-Transformers для всех режимов, кроме явного tfidf
                     logger.info("🧠 Используем Sentence-Transformers (семантические эмбеддинги)")
                     self._clustering_method = 'Sentence-Transformers'
                     _report(15, f"Генерация эмбеддингов ({_TORCH_DEVICE.upper()})...")
@@ -396,13 +458,20 @@ class SemanticAnalyzer:
 
                 # ✅ ВЫБОР МЕТОДА КЛАСТЕРИЗАЦИИ
                 if clustering_mode == 'threshold':
-                    # Порог сходства
-                    similarity_matrix = cosine_similarity(embeddings)
+                    # Порог сходства (с chunked вычислением для больших датасетов)
+                    similarity_matrix = self._compute_similarity_chunked(embeddings)
                     clusters = self._cluster_threshold(phrases, similarity_matrix, threshold)
                 
                 elif clustering_mode == 'fixed':
                     # Фиксированное количество кластеров
                     labels = self._cluster_agglomerative(embeddings, n_clusters)
+                    clusters = self._labels_to_clusters(phrases, labels)
+                
+                elif clustering_mode == 'leiden' and LEIDEN_AVAILABLE:
+                    # Leiden графовая кластеризация
+                    logger.info("🕸 Используем Leiden (графовая кластеризация)")
+                    self._clustering_method += ' + Leiden'
+                    labels = self._cluster_leiden(embeddings, threshold=threshold)
                     clusters = self._labels_to_clusters(phrases, labels)
                 
                 elif clustering_mode in ['auto', 'semantic'] and HDBSCAN_AVAILABLE:
@@ -625,5 +694,8 @@ class SemanticAnalyzer:
         if SENTENCE_TRANSFORMERS_AVAILABLE:
             methods.insert(0, 'semantic')
             methods.insert(0, 'auto')
+        
+        if LEIDEN_AVAILABLE:
+            methods.append('leiden')
         
         return methods
