@@ -412,7 +412,7 @@ class MainWindow(ctk.CTk):
         self.ai_clustering_mode = LabeledComboBox(
             params_frame,
             label_text="🔗 Режим работы анализа:",
-            values=["auto", "semantic", "tfidf", "threshold", "fixed"],
+            values=["auto", "semantic", "leiden", "tfidf", "threshold", "fixed"],
             default="auto"
         )
         self.ai_clustering_mode.pack(fill='x', pady=5, padx=10)
