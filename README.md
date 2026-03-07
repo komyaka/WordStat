@@ -127,6 +127,7 @@ pip install -r requirements.txt
 | `openpyxl` | Экспорт в Excel |
 | `Pillow` | Работа с изображениями в UI |
 | `psutil` | Мониторинг системных ресурсов |
+| `torch` | Фреймворк глубокого обучения (требуется для sentence-transformers) |
 | `sentence-transformers` | Нейросетевые эмбеддинги для семантического анализа |
 | `hdbscan` | Алгоритм плотностной кластеризации |
 
