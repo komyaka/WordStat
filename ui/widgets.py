@@ -102,6 +102,7 @@ class LabeledComboBox(ctk.CTkFrame):
             logger.error(f"✗ Ошибка set(): {e}")
 
 
+class LabeledTextbox(ctk.CTkFrame):
     """Textbox с меткой и счётчиком строк"""
     
     def __init__(self, parent, label_text: str, height: int = 150, **kwargs):
