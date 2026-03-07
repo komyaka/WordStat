@@ -3,7 +3,7 @@
 """
 import threading
 import time
-from typing import Optional, Callable
+from typing import Optional
 from queue import Queue, Empty
 
 from utils.logger import get_logger
@@ -47,6 +47,7 @@ class Worker(threading.Thread):
                 task_dict = self.task_queue.get(timeout=1)
                 
                 if task_dict is None:
+                    self.task_queue.task_done()
                     break
                 
                 try:
@@ -89,6 +90,8 @@ class Worker(threading.Thread):
                         'response': None,
                         'error': str(e)
                     })
+                finally:
+                    self.task_queue.task_done()
             
             except Empty:
                 continue

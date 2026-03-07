@@ -21,7 +21,7 @@ class RateLimiter:
     def __init__(self,
                  max_rps: int = 10,
                  max_per_hour: int = 10000,
-                 max_per_day: int = 1000):
+                 max_per_day: int = 100000):
         """
         Args:
             max_rps: Максимум запросов в секунду (глобально)

@@ -86,9 +86,14 @@ class TaskItem:
         if not isinstance(data, dict):
             raise ValueError(f"Expected dict, got {type(data)}")
         
+        try:
+            depth = int(data.get('depth', 1))
+        except (ValueError, TypeError):
+            depth = 1
+        
         return cls(
             phrase=data.get('phrase', ''),
-            depth=int(data.get('depth', 1)),
+            depth=depth,
             seed=data.get('seed', ''),
             source=data.get('source'),
         )
